@@ -13,7 +13,7 @@ class AmazonFineFoodsReviews(object):
         self.df = pd.read_csv(database_path)
         print(f'Data:\n{self.df.describe()}')
         print(self.df.columns)
-        self.df = self.df[:20]
+        self.df = self.df[:1000]
 
     @staticmethod
     def compress(x: List) -> List:
@@ -28,10 +28,11 @@ class AmazonFineFoodsReviews(object):
 
         return x
 
-    def build_graph(self, language_model_name='bert-base-cased'):
+    def build_graph(self, language_model_name='bert-base-cased', max_length=512):
         """
         Build graph from reviews
         :param language_model_name:
+        :param max_length:
         :return:
         """
         user_ids = AmazonFineFoodsReviews.compress(self.df.UserId.tolist())
@@ -44,11 +45,11 @@ class AmazonFineFoodsReviews(object):
 
         self.df.Score = self.df.Score.apply(lambda x: 0 if x < 3 else 1 if x == 3 else 2)
         scores = self.df.Score.tolist()
-        # summaries = self.df.Summary.tolist()
         text = self.df.Text.tolist()
 
         tokenizer = AutoTokenizer.from_pretrained(language_model_name)
-        tokenized_text = tokenizer(text, padding=True, return_tensors='pt', verbose=True)
+        tokenized_text = tokenizer(text, padding=True, max_length=max_length, return_tensors='pt',
+                                   verbose=True)
 
         edge_attr = torch.cat(
             [tokenized_text['input_ids'].unsqueeze(1), tokenized_text['token_type_ids'].unsqueeze(1),
