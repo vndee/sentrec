@@ -1,3 +1,5 @@
+#!/bin/sh
+
 TORCH_VERSION=1.8.1
 CUDA_VERSION=cpu
 
