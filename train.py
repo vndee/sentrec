@@ -14,11 +14,13 @@ if __name__ == '__main__':
     argument.add_argument('-r', '--learning_rate', type=float, default=0.01, help='Model learning rate')
     argument.add_argument('-d', '--device', type=str, default='cpu', help='Training device')
     argument.add_argument('-e', '--epoch', type=int, default=50, help='The number of epoch')
+    argument.add_argument('-t', '--text_feature', type=bool, default=True, help='Using text feature or not')
     argument.add_argument('-m', '--max_length', type=int, default=512, help='Reviews max length')
     args = argument.parse_args()
 
     net = GCNNet()
     graph = AmazonFineFoodsReviews(database_path=args.input).build_graph(
+        text_feature=args.text_feature,
         language_model_name=args.language_model_shortcut,
         max_length=args.max_length)
     graph = train_test_split_edges(graph)

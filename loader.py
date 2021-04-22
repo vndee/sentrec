@@ -28,10 +28,10 @@ class AmazonFineFoodsReviews(object):
 
         return x
 
-    def build_graph(self, is_sent=True, language_model_name='bert-base-cased', max_length=512):
+    def build_graph(self, text_feature=True, language_model_name='bert-base-cased', max_length=512):
         """
         Build graph from reviews
-        :param is_sent:
+        :param text_feature:
         :param language_model_name:
         :param max_length:
         :return:
@@ -49,7 +49,7 @@ class AmazonFineFoodsReviews(object):
         self.df.Score = self.df.Score.apply(lambda x: 0 if x < 3 else 1 if x == 3 else 2)
         scores = self.df.Score.tolist()
 
-        if is_sent is True:
+        if text_feature is True:
             text = self.df.Text.tolist()
             tokenizer = AutoTokenizer.from_pretrained(language_model_name)
             tokenized_text = tokenizer(text, padding=True, max_length=max_length, return_tensors='pt',
@@ -59,9 +59,6 @@ class AmazonFineFoodsReviews(object):
                 [tokenized_text['input_ids'].unsqueeze(1), tokenized_text['token_type_ids'].unsqueeze(1),
                  tokenized_text['attention_mask'].unsqueeze(1)], 1)
 
-        print('-' * 100)
-
-        if is_sent is True:
             return Data(x=torch.ones(1 + np.max(product_ids), 1), edge_index=edge_index, edge_attr=edge_attr,
                         y=torch.tensor(scores, dtype=torch.long))
 
