@@ -13,7 +13,7 @@ class AmazonFineFoodsReviews(object):
         self.df = pd.read_csv(database_path)
         print(f'Data:\n{self.df.describe()}')
         print(self.df.columns)
-        self.df = self.df[:100]
+        self.df = self.df[:100000]
 
     @staticmethod
     def compress(x: List) -> List:

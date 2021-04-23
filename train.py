@@ -1,9 +1,24 @@
+import os
 import torch
+import random
 import argparse
+import numpy as np
 
 from gcn import GCNNet
-from utils import train_test_split_edges
+from utils import split_graph
 from loader import AmazonFineFoodsReviews
+
+
+def set_reproducibility(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+
 
 if __name__ == '__main__':
     argument = argparse.ArgumentParser(description='Training job for Sentiment Graph for Recommendation')
@@ -12,25 +27,32 @@ if __name__ == '__main__':
                           help='Pre-trained language model shortcut')
     argument.add_argument('-r', '--learning_rate', type=float, default=0.01, help='Model learning rate')
     argument.add_argument('-d', '--device', type=str, default='cpu', help='Training device')
-    argument.add_argument('-e', '--epoch', type=int, default=50, help='The number of epoch')
-    argument.add_argument('-t', '--text_feature', type=bool, default=True, help='Using text feature or not')
+    argument.add_argument('-e', '--epoch', type=int, default=100, help='The number of epoch')
+    argument.add_argument('-t', '--text_feature', type=bool, default=False, help='Using text feature or not')
     argument.add_argument('-s', '--multi_task', type=bool, default=False, help='Using multi-task training')
     argument.add_argument('-m', '--max_length', type=int, default=512, help='Reviews max length')
+    argument.add_argument('-a', '--random_seed', type=int, default=42, help='Seed number')
     args = argument.parse_args()
 
+    set_reproducibility(args.random_seed)
     net = GCNNet()
     graph = AmazonFineFoodsReviews(database_path=args.input).build_graph(
         text_feature=args.text_feature,
         language_model_name=args.language_model_shortcut,
         max_length=args.max_length)
-    graph = train_test_split_edges(graph)
+    graph = split_graph(graph)
+    # verify_negative_edge(graph)
+
+    if args.multi_task is False:
+        graph.y = graph.y + 1
 
     net, graph = net.to(args.device), graph.to(args.device)
+    criterion = torch.nn.CrossEntropyLoss()
     optim = torch.optim.Adam(params=net.parameters(), lr=args.learning_rate)
 
     best_val_perf, test_perf = 0., 0.
     for epoch in range(args.epoch):
-        train_loss = net.learn(data=graph, optimizer=optim, device=args.device)
+        train_loss = net.learn(data=graph, optimizer=optim, criterion=criterion, device=args.device)
         val_perf, temp_test_perf = net.evaluate(data=graph, device=args.device)
 
         if val_perf > best_val_perf:
