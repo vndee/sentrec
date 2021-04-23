@@ -30,8 +30,8 @@ class GCNNet(torch.nn.Module):
 
     @staticmethod
     def get_link_labels(pos_edge_index: torch.Tensor, neg_edge_index: torch.Tensor, device: torch.device):
-        E = pos_edge_index.size(1) + neg_edge_index.size(1)
-        link_labels = torch.zeros(E, dtype=torch.float, device=device)
+        batch = pos_edge_index.size(1) + neg_edge_index.size(1)
+        link_labels = torch.zeros(batch, dtype=torch.float, device=device)
         link_labels[: pos_edge_index.size(1)] = 1.
         return link_labels
 

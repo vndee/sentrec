@@ -2,9 +2,8 @@ import torch
 import argparse
 
 from gcn import GCNNet
+from utils import train_test_split_edges
 from loader import AmazonFineFoodsReviews
-from torch_geometric.utils import train_test_split_edges
-
 
 if __name__ == '__main__':
     argument = argparse.ArgumentParser(description='Training job for Sentiment Graph for Recommendation')
@@ -15,6 +14,7 @@ if __name__ == '__main__':
     argument.add_argument('-d', '--device', type=str, default='cpu', help='Training device')
     argument.add_argument('-e', '--epoch', type=int, default=50, help='The number of epoch')
     argument.add_argument('-t', '--text_feature', type=bool, default=True, help='Using text feature or not')
+    argument.add_argument('-s', '--multi_task', type=bool, default=False, help='Using multi-task training')
     argument.add_argument('-m', '--max_length', type=int, default=512, help='Reviews max length')
     args = argument.parse_args()
 
