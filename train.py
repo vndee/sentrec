@@ -4,12 +4,12 @@ import random
 import argparse
 import numpy as np
 
-from model import GCNNet, SAGE, RGCNNet
+from models import GCNNet, SAGE, RGCNNet
 from loader import AmazonFineFoodsReviews
 from torch_geometric.data import ClusterData
 from torch_geometric.data import NeighborSampler
 from torch_geometric.data import GraphSAINTRandomWalkSampler
-from utils import split_graph, verify_negative_edge
+from utils import SEALDataset, split_graph, verify_negative_edge, to_undirected
 
 
 def set_reproducibility_state(seed):
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     argument = argparse.ArgumentParser(description='Training job for Sentiment Graph for Recommendation')
     argument.add_argument('-i', '--input', type=str, default='data/Reviews.csv', help='Path to training data')
     argument.add_argument('-l', '--language_model_shortcut', type=str, default='bert-base-cased',
-                          help='Pre-trained language model shortcut')
+                          help='Pre-trained language models shortcut')
     argument.add_argument('-r', '--learning_rate', type=float, default=0.01, help='Model learning rate')
     argument.add_argument('-d', '--device', type=str, default='cpu', help='Training device')
     argument.add_argument('-e', '--epoch', type=int, default=100, help='The number of epoch')
@@ -45,39 +45,44 @@ if __name__ == '__main__':
         language_model_name=args.language_model_shortcut,
         max_length=args.max_length)
 
-    cluster_data = ClusterData(graph, num_parts=args.num_partition, recursive=True)
-    # cluster_data = NeighborSampler(edge_index=graph.edge_index, sizes=[-1])
-    # cluster_data = GraphSAINTRandomWalkSampler(graph, walk_length=3, num_steps=100, batch_size=32)
-    print('Graph partitioned..')
+    graph = split_graph(graph)
+    graph = to_undirected(graph)
+    print(graph)
+    # seal = SEALDataset(split_graph(graph), 3)
 
-    net = net.to(args.device)
-    criterion = torch.nn.CrossEntropyLoss()
-    optim = torch.optim.Adam(params=net.parameters(), lr=args.learning_rate)
-
-    best_val_perf, test_perf = 0., 0.
-    for epoch in range(args.epoch):
-        cnt, total_train_loss, total_val_perf, total_temp_test_perf = 0, 0., 0., 0.
-
-        for cluster in cluster_data:
-            cluster = split_graph(cluster)
-
-            if args.multi_task is False:
-                cluster.y = cluster.y + 1
-
-            cluster = cluster.to(args.device)
-            train_loss = net.learn(data=cluster, optimizer=optim, criterion=criterion, device=args.device)
-            val_perf, temp_test_perf = net.evaluate(data=cluster, device=args.device)
-
-            cnt = cnt + 1
-            total_train_loss = total_train_loss + train_loss
-            total_val_perf = total_val_perf + val_perf
-            total_temp_test_perf = total_temp_test_perf + temp_test_perf
-
-        train_loss = total_train_loss / cnt
-        val_perf = total_val_perf / cnt
-        test_perf = total_temp_test_perf / cnt
-
-        print(f'Epoch: {epoch + 1:04d}/{args.epoch:04d}, '
-              f'Loss: {train_loss:.5f}, '
-              f'Val: {val_perf:.5f}, '
-              f'Test: {test_perf:.5f}')
+    # cluster_data = ClusterData(graph, num_parts=args.num_partition, recursive=True)
+    # # cluster_data = NeighborSampler(edge_index=graph.edge_index, sizes=[-1])
+    # # cluster_data = GraphSAINTRandomWalkSampler(graph, walk_length=3, num_steps=100, batch_size=32)
+    # print('Graph partitioned..')
+    #
+    # net = net.to(args.device)
+    # criterion = torch.nn.CrossEntropyLoss()
+    # optim = torch.optim.Adam(params=net.parameters(), lr=args.learning_rate)
+    #
+    # best_val_perf, test_perf = 0., 0.
+    # for epoch in range(args.epoch):
+    #     cnt, total_train_loss, total_val_perf, total_temp_test_perf = 0, 0., 0., 0.
+    #
+    #     for cluster in cluster_data:
+    #         cluster = split_graph(cluster)
+    #
+    #         if args.multi_task is False:
+    #             cluster.y = cluster.y + 1
+    #
+    #         cluster = cluster.to(args.device)
+    #         train_loss = net.learn(data=cluster, optimizer=optim, criterion=criterion, device=args.device)
+    #         val_perf, temp_test_perf = net.evaluate(data=cluster, device=args.device)
+    #
+    #         cnt = cnt + 1
+    #         total_train_loss = total_train_loss + train_loss
+    #         total_val_perf = total_val_perf + val_perf
+    #         total_temp_test_perf = total_temp_test_perf + temp_test_perf
+    #
+    #     train_loss = total_train_loss / cnt
+    #     val_perf = total_val_perf / cnt
+    #     test_perf = total_temp_test_perf / cnt
+    #
+    #     print(f'Epoch: {epoch + 1:04d}/{args.epoch:04d}, '
+    #           f'Loss: {train_loss:.5f}, '
+    #           f'Val: {val_perf:.5f}, '
+    #           f'Test: {test_perf:.5f}')
