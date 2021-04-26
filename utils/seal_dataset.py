@@ -13,13 +13,14 @@ class SEALDataset(object):
         self.data = data
         self.__max_z__ = 0
         self.num_hops = num_hops
+        self.num_features = data.x.shape[1]
         self.train = self.extract_enclosing_subgraph(self.data.train_edge_index, self.data.train_target_index)
         self.val = self.extract_enclosing_subgraph(self.data.val_edge_index, self.data.val_target_index)
         self.test = self.extract_enclosing_subgraph(self.data.test_edge_index, self.data.test_target_index)
 
     def extract_enclosing_subgraph(self, edge_index, y):
         data_list = []
-        for src, dst in tqdm(edge_index.t().tolist(), desc='Extract enclosing subgraph'):
+        for idx, (src, dst) in enumerate(tqdm(edge_index.t().tolist(), desc='Extract enclosing subgraph')):
             sub_nodes, sub_edge_index, mapping, _ = k_hop_subgraph([src, dst], self.num_hops, edge_index, relabel_nodes=True)
             src, dst = mapping.tolist()
 
@@ -33,7 +34,7 @@ class SEALDataset(object):
                                         num_nodes=sub_nodes.size(0))
 
             data = Data(x=self.data.x[sub_nodes], z=z,
-                        edge_index=sub_edge_index, y=y)
+                        edge_index=sub_edge_index, y=y[idx])
             data_list.append(data)
 
         return data_list

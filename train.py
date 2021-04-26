@@ -4,9 +4,9 @@ import random
 import argparse
 import numpy as np
 
-from models import GCNNet, SAGE, RGCNNet
+from models import GCNNet, SAGE, RGCNNet, SEALNet
 from loader import AmazonFineFoodsReviews
-from torch_geometric.data import ClusterData
+from torch_geometric.data import ClusterData, DataLoader
 from torch_geometric.data import NeighborSampler
 from torch_geometric.data import GraphSAINTRandomWalkSampler
 from utils import SEALDataset, split_graph, verify_negative_edge, to_undirected
@@ -36,7 +36,8 @@ if __name__ == '__main__':
     argument.add_argument('-m', '--max_length', type=int, default=512, help='Reviews max length')
     argument.add_argument('-n', '--num_partition', type=int, default=1, help='Number of graph partition')
     argument.add_argument('-k', '--num_hops', type=int, default=3, help='Number of hops')
-    argument.add_argument('-c', '--model', type=str, default='sage', help='Model')
+    argument.add_argument('-c', '--model', type=str, default='seal', help='Model')
+    argument.add_argument('-b', '--batch_size', type=int, default=32, help='Batch size')
     argument.add_argument('-a', '--random_seed', type=int, default=42, help='Seed number')
     args = argument.parse_args()
     set_reproducibility_state(args.random_seed)
@@ -96,3 +97,22 @@ if __name__ == '__main__':
         graph = split_graph(graph)
         graph = to_undirected(graph)
         seal = SEALDataset(split_graph(graph), args.num_hops)
+        train_loader, val_loader, test_loader = DataLoader(seal.train, batch_size=args.batch_size, shuffle=True), \
+                                                DataLoader(seal.val, batch_size=args.batch_size, shuffle=True), \
+                                                DataLoader(seal.test, batch_size=args.batch_size, shuffle=True)
+
+        net = SEALNet(seal).to(args.device)
+        criterion = torch.nn.CrossEntropyLoss()
+        optim = torch.optim.Adam(params=net.parameters(), lr=args.learning_rate)
+
+        for epoch in range(args.epoch):
+            # train
+            total_train_loss, total_train_perf, total_val_loss, total_val_perf, total_test_loss, total_test_perf = 0., \
+                                                                                                                   0., \
+                                                                                                                   0., \
+                                                                                                                   0., \
+                                                                                                                   0., \
+                                                                                                                   0.
+            for train_data in train_loader:
+                loss = net.learn(data=train_data, optimizer=optim, criterion=criterion, device=args.device)
+
