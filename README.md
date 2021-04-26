@@ -2,7 +2,7 @@
 
 #### Loader:
 
-- Load un-directed graph from [Amazon Fine Food Reviews Dataset](https://snap.stanford.edu/data/web-FineFoods.html).
+- [x] Load un-directed graph from [Amazon Fine Food Reviews Dataset](https://snap.stanford.edu/data/web-FineFoods.html).
 
 #### Baseline:
 
