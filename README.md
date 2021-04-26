@@ -4,7 +4,7 @@
 
 - [x] Load un-directed graph from [Amazon Fine Food Reviews Dataset](https://snap.stanford.edu/data/web-FineFoods.html).
 
-#### Baseline:
+#### Backbone:
 
 - [x] GCN
 - [x] SAGE
