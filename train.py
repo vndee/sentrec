@@ -10,7 +10,7 @@ from loader import AmazonFineFoodsReviews
 from torch_geometric.data import ClusterData, ClusterLoader
 
 
-def set_reproducibility(seed):
+def set_reproducibility_state(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -34,19 +34,19 @@ if __name__ == '__main__':
     argument.add_argument('-m', '--max_length', type=int, default=512, help='Reviews max length')
     argument.add_argument('-a', '--random_seed', type=int, default=42, help='Seed number')
     args = argument.parse_args()
+    set_reproducibility_state(args.random_seed)
 
-    set_reproducibility(args.random_seed)
     net = GCNNet()
     graph = AmazonFineFoodsReviews(database_path=args.input).build_graph(
         text_feature=args.text_feature,
         language_model_name=args.language_model_shortcut,
         max_length=args.max_length)
 
-    graph = ClusterData(graph, num_parts=3)
-    cluster_graph = ClusterLoader(graph, batch_size=32, shuffle=True)
+    cluster_data = ClusterData(graph, num_parts=32, recursive=True)
+    cluster_loader = ClusterLoader(cluster_data, batch_size=32, shuffle=True)
 
     total_num_nodes = 0
-    for step, sub_data in enumerate(cluster_graph):
+    for step, sub_data in enumerate(cluster_loader):
         print(f'Step {step + 1}:')
         print('=======')
         print(f'Number of nodes in the current batch: {sub_data.num_nodes}')
@@ -55,6 +55,7 @@ if __name__ == '__main__':
         total_num_nodes += sub_data.num_nodes
 
     print(f'Iterated over {total_num_nodes} of {graph.num_nodes} nodes!')
+
     # graph = split_graph(graph)
     # # verify_negative_edge(graph)
     #
