@@ -47,8 +47,7 @@ if __name__ == '__main__':
 
     graph = split_graph(graph)
     graph = to_undirected(graph)
-    print(graph)
-    # seal = SEALDataset(split_graph(graph), 3)
+    seal = SEALDataset(split_graph(graph), 3)
 
     # cluster_data = ClusterData(graph, num_parts=args.num_partition, recursive=True)
     # # cluster_data = NeighborSampler(edge_index=graph.edge_index, sizes=[-1])

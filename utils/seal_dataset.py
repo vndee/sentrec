@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 
+from tqdm import tqdm
 from torch_geometric.data import Data
 from scipy.sparse.csgraph import shortest_path
 from torch_geometric.utils import k_hop_subgraph, to_scipy_sparse_matrix
@@ -9,12 +10,16 @@ from torch_geometric.utils import k_hop_subgraph, to_scipy_sparse_matrix
 class SEALDataset(object):
     def __init__(self, data: Data, num_hops: int):
         super(SEALDataset, self).__init__()
+        self.data = data
+        self.__max_z__ = 0
         self.num_hops = num_hops
-        self.extract_enclosing_subgraph(data.train_edge_index, data.train_target_index)
+        self.train = self.extract_enclosing_subgraph(self.data.train_edge_index, self.data.train_target_index)
+        self.val = self.extract_enclosing_subgraph(self.data.val_edge_index, self.data.val_target_index)
+        self.test = self.extract_enclosing_subgraph(self.data.test_edge_index, self.data.test_target_index)
 
     def extract_enclosing_subgraph(self, edge_index, y):
         data_list = []
-        for src, dst in edge_index.t().tolist():
+        for src, dst in tqdm(edge_index.t().tolist(), desc='Extract enclosing subgraph'):
             sub_nodes, sub_edge_index, mapping, _ = k_hop_subgraph([src, dst], self.num_hops, edge_index, relabel_nodes=True)
             src, dst = mapping.tolist()
 

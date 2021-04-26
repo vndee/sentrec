@@ -11,10 +11,10 @@
 #### Learning strategy:
 
 - [ ] Single task: representation -> `[neg, neu, pos, nan]`
-- [ ] Multiple task: representation -> `[nan, ext] + [nge, neu, pos]`
+- [ ] Multiple task: representation -> `[nan, ext] + [neg, neu, pos]`
 
 #### Mini-batches sampler:
 
-- [ ] Cluster GCN
+- [x] Cluster GCN
 - [ ] Graph SAINT
 - [ ] Neighbor Sampler
