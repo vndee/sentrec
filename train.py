@@ -147,8 +147,8 @@ if __name__ == '__main__':
                 total_val_f1 = total_val_f1 + f1
                 total_val_acc = total_val_acc + acc
 
-            avg_val_f1 = avg_val_f1 / cnt
-            avg_val_acc = avg_val_acc / cnt
+            avg_val_f1 = total_val_f1 / cnt
+            avg_val_acc = total_val_acc / cnt
 
             for test_data in test_loader:
                 f1, acc = net.evaluate(data=test_data, device=args.device)
@@ -156,8 +156,8 @@ if __name__ == '__main__':
                 total_test_f1 = total_test_f1 + f1
                 total_test_acc = total_test_acc + acc
 
-            avg_test_f1 = avg_test_f1 / cnt
-            avg_test_acc = avg_test_acc / cnt
+            avg_test_f1 = total_test_f1 / cnt
+            avg_test_acc = total_test_acc / cnt
 
             print(f'Epoch: {epoch + 1:04d}/{args.epoch:04d}, train_loss: {avg_train_loss:.5f}, '
                   f'train_acc: {avg_train_acc:.2f}, train_f1: {avg_train_f1:.2f}, '

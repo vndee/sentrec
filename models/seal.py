@@ -66,7 +66,7 @@ class SEALNet(torch.nn.Module):
         optimizer.step()
 
         pred = torch.argmax(logits, -1)
-        f1, acc = f1_score(truth, pred), accuracy_score(truth, pred)
+        f1, acc = f1_score(truth, pred, average="macro"), accuracy_score(truth, pred)
 
         return loss.item(), f1, acc
 
@@ -76,5 +76,5 @@ class SEALNet(torch.nn.Module):
         logits = self.forward(data.x, data.edge_index, data.batch)
 
         pred = torch.argmax(logits, -1)
-        f1, acc = f1_score(truth, pred), accuracy_score(truth, pred)
+        f1, acc = f1_score(truth, pred, average="macro"), accuracy_score(truth, pred)
         return f1, acc
