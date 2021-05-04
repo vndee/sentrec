@@ -1,6 +1,6 @@
 import torch
 from torch_geometric.nn import SAGEConv
-from sklearn.metrics import roc_auc_score, accuracy_score
+from sklearn.metrics import f1_score, accuracy_score
 
 
 class SAGE(torch.nn.Module):
@@ -48,12 +48,15 @@ class SAGE(torch.nn.Module):
         loss.backward()
         optimizer.step()
 
-        return loss.item()
+        link_preds = torch.argmax(link_logits, dim=-1)
+        return loss.item(), accuracy_score(link_labels.cpu(), link_preds.cpu()), f1_score(link_labels.cpu(),
+                                                                                          link_preds.cpu(),
+                                                                                          average='macro')
 
     @torch.no_grad()
     def evaluate(self, data, device: torch.device):
         self.eval()
-        perfs = []
+        acc, f1 = [], []
         for prfx in ['val', 'test']:
             tgt_edge_index = data[f'{prfx}_target_index']
             pos_edge_index = data[f'{prfx}_edge_index']
@@ -63,6 +66,7 @@ class SAGE(torch.nn.Module):
             link_logits = self.decode(z, pos_edge_index, neg_edge_index)
             link_preds = torch.argmax(link_logits, dim=-1)
             link_labels = SAGE.get_link_labels(neg_edge_index, tgt_edge_index, device)
-            perfs.append(accuracy_score(link_labels.cpu(), link_preds.cpu()))
+            acc.append(accuracy_score(link_labels.cpu(), link_preds.cpu()))
+            f1.append(f1_score(link_labels.cpu(), link_preds.cpu(), average='macro'))
 
-        return perfs
+        return acc, f1

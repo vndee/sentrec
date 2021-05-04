@@ -36,12 +36,13 @@ if __name__ == '__main__':
     argument.add_argument('-m', '--max_length', type=int, default=512, help='Reviews max length')
     argument.add_argument('-n', '--num_partition', type=int, default=1, help='Number of graph partition')
     argument.add_argument('-k', '--num_hops', type=int, default=3, help='Number of hops')
-    argument.add_argument('-c', '--model', type=str, default='seal', help='Model')
+    argument.add_argument('-c', '--model', type=str, default='rgcn', help='Model')
     argument.add_argument('-b', '--batch_size', type=int, default=32, help='Batch size')
     argument.add_argument('-a', '--random_seed', type=int, default=42, help='Seed number')
     args = argument.parse_args()
     set_reproducibility_state(args.random_seed)
 
+    print(args)
     graph = AmazonFineFoodsReviews(database_path=args.input).build_graph(
         text_feature=args.text_feature,
         language_model_name=args.language_model_shortcut,
@@ -66,7 +67,9 @@ if __name__ == '__main__':
 
         best_val_perf, test_perf = 0., 0.
         for epoch in range(args.epoch):
+            total_test_acc, total_test_f1 = 0., 0.
             cnt, total_train_loss, total_val_perf, total_temp_test_perf = 0, 0., 0., 0.
+            total_train_acc, total_train_f1, total_val_acc, total_val_f1 = 0., 0., 0., 0.
 
             for cluster in cluster_data:
                 if args.multi_task is False:
@@ -76,22 +79,38 @@ if __name__ == '__main__':
                 cluster = to_undirected(cluster)
 
                 cluster = cluster.to(args.device)
-                train_loss = net.learn(data=cluster, optimizer=optim, criterion=criterion, device=args.device)
+                train_loss, train_acc, train_f1 = net.learn(data=cluster, optimizer=optim, criterion=criterion,
+                                                            device=args.device)
                 val_perf, temp_test_perf = net.evaluate(data=cluster, device=args.device)
 
                 cnt = cnt + 1
+                val_acc, val_f1 = val_perf[0], val_perf[1]
+                test_acc, test_f1 = temp_test_perf[0], temp_test_perf[1]
+
                 total_train_loss = total_train_loss + train_loss
-                total_val_perf = total_val_perf + val_perf
-                total_temp_test_perf = total_temp_test_perf + temp_test_perf
+                total_train_acc = total_train_acc + train_acc
+                total_train_f1 = total_train_f1 + train_f1
 
-            train_loss = total_train_loss / cnt
-            val_perf = total_val_perf / cnt
-            test_perf = total_temp_test_perf / cnt
+                total_val_acc = total_val_acc + val_acc
+                total_val_f1 = total_val_f1 + val_f1
 
-            print(f'Epoch: {epoch + 1:04d}/{args.epoch:04d}, '
-                  f'Loss: {train_loss:.5f}, '
-                  f'Val: {val_perf:.5f}, '
-                  f'Test: {test_perf:.5f}')
+                total_test_acc = total_test_acc + test_acc
+                total_test_f1 = total_test_f1 + test_f1
+
+            avg_train_loss = total_train_loss / cnt
+            avg_train_acc = total_train_acc / cnt
+            avg_train_f1 = total_train_f1 / cnt
+
+            avg_val_acc = total_val_acc / cnt
+            avg_val_f1 = total_val_f1 / cnt
+
+            avg_test_acc = total_test_acc / cnt
+            avg_test_f1 = total_test_f1 / cnt
+
+            print(f'Epoch: {epoch + 1:04d}/{args.epoch:04d}, train_loss: {avg_train_loss:.5f}, '
+                  f'train_acc: {avg_train_acc:.2f}, train_f1: {avg_train_f1:.2f}, '
+                  f'val_acc: {avg_val_acc:.2f}, val_f1: {avg_val_f1:.2f}, '
+                  f'test_acc: {avg_test_acc:.2f}, test_f1: {avg_test_f1:.2f}')
 
     elif args.model == 'seal':
         graph = split_graph(graph)
@@ -115,4 +134,3 @@ if __name__ == '__main__':
                                                                                                                    0.
             for train_data in train_loader:
                 loss = net.learn(data=train_data, optimizer=optim, criterion=criterion, device=args.device)
-
