@@ -23,12 +23,22 @@ def set_reproducibility_state(seed):
     os.environ['PYTHONHASHSEED'] = str(seed)
 
 
+def batch_evaluate(net, loader, device):
+    total_f1, total_acc = 0, 0., 0
+    for data in loader:
+        f1, acc = net.evaluate(data=data, device=device)
+        total_f1 = total_f1 + f1
+        total_acc = total_acc + acc
+
+    return total_f1 / len(loader), total_acc / len(loader)
+
+
 if __name__ == '__main__':
     argument = argparse.ArgumentParser(description='Training job for Sentiment Graph for Recommendation')
     argument.add_argument('-i', '--input', type=str, default='data/Reviews.csv', help='Path to training data')
     argument.add_argument('-l', '--language_model_shortcut', type=str, default='bert-base-cased',
                           help='Pre-trained language models shortcut')
-    argument.add_argument('-r', '--learning_rate', type=float, default=0.001, help='Model learning rate')
+    argument.add_argument('-r', '--learning_rate', type=float, default=0.00001, help='Model learning rate')
     argument.add_argument('-d', '--device', type=str, default='cpu', help='Training device')
     argument.add_argument('-e', '--epoch', type=int, default=100, help='The number of epoch')
     argument.add_argument('-t', '--text_feature', type=bool, default=False, help='Using text feature or not')
@@ -141,23 +151,8 @@ if __name__ == '__main__':
             avg_train_acc = total_train_acc / cnt
             avg_train_f1 = total_train_f1 / cnt
 
-            for val_data in val_loader:
-                f1, acc = net.evaluate(data=val_data, device=args.device)
-                cnt = cnt + 1
-                total_val_f1 = total_val_f1 + f1
-                total_val_acc = total_val_acc + acc
-
-            avg_val_f1 = total_val_f1 / cnt
-            avg_val_acc = total_val_acc / cnt
-
-            for test_data in test_loader:
-                f1, acc = net.evaluate(data=test_data, device=args.device)
-                cnt = cnt + 1
-                total_test_f1 = total_test_f1 + f1
-                total_test_acc = total_test_acc + acc
-
-            avg_test_f1 = total_test_f1 / cnt
-            avg_test_acc = total_test_acc / cnt
+            avg_val_f1, avg_val_acc = batch_evaluate(net, val_loader, args.device)
+            avg_test_f1, avg_test_acc = batch_evaluate(net, test_loader, args.device)
 
             print(f'Epoch: {epoch + 1:04d}/{args.epoch:04d}, train_loss: {avg_train_loss:.5f}, '
                   f'train_acc: {avg_train_acc:.2f}, train_f1: {avg_train_f1:.2f}, '
