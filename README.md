@@ -30,4 +30,3 @@
 - Chiang, W., Liu, X., Si, S., Li, Y., Bengio, S., & Hsieh, C. (2019). Cluster-GCN: An Efficient Algorithm for Training Deep and Large Graph Convolutional Networks. Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining.
 - Zeng, H., Zhou, H., Srivastava, A., Kannan, R., & Prasanna, V. (2020). GraphSAINT: Graph Sampling Based Inductive Learning Method. ArXiv, abs/1907.04931.
 - Hamilton, W.L., Ying, Z., & Leskovec, J. (2017). Inductive Representation Learning on Large Graphs. NIPS.
-- Kipf, T., & Welling, M. (2016). Variational Graph Auto-Encoders. ArXiv, abs/1611.07308.
