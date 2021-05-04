@@ -4,8 +4,9 @@ import random
 import argparse
 import numpy as np
 
-from models import GCNNet, SAGE, RGCNNet, SEALNet
+from models import GCNNet, SAGE, RGCNNet, SEALNet, VariationalGCNEncoder
 from loader import AmazonFineFoodsReviews
+from torch_geometric.nn import VGAE
 from torch_geometric.data import ClusterData, DataLoader
 from torch_geometric.data import NeighborSampler
 from torch_geometric.data import GraphSAINTRandomWalkSampler
@@ -46,7 +47,7 @@ if __name__ == '__main__':
     argument.add_argument('-m', '--max_length', type=int, default=512, help='Reviews max length')
     argument.add_argument('-n', '--num_partition', type=int, default=1, help='Number of graph partition')
     argument.add_argument('-k', '--num_hops', type=int, default=3, help='Number of hops')
-    argument.add_argument('-c', '--model', type=str, default='seal', help='Model')
+    argument.add_argument('-c', '--model', type=str, default='sage', help='Model')
     argument.add_argument('-b', '--batch_size', type=int, default=32, help='Batch size')
     argument.add_argument('-a', '--random_seed', type=int, default=42, help='Seed number')
     args = argument.parse_args()

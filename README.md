@@ -9,8 +9,7 @@
 - [x] GCN
 - [x] SAGE
 - [x] R-GCN  
-- [ ] GAE
-- [ ] SEAL
+- [x] SEAL
 
 #### Learning strategy:
 
