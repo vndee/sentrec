@@ -2,6 +2,7 @@ import math
 import torch
 import torch.nn.functional as F
 
+from sklearn.metrics import f1_score, accuracy_score
 from torch_geometric.nn import GCNConv, global_sort_pool
 from torch.nn import ModuleList, Linear, Conv1d, MaxPool1d, Softmax
 
@@ -58,16 +59,22 @@ class SEALNet(torch.nn.Module):
         self.train()
         optimizer.zero_grad()
 
+        truth = data.y.to(device).long()
         logits = self.forward(data.x, data.edge_index, data.batch)
-        loss = criterion(logits, data.y.to(device).long())
+        loss = criterion(logits, truth)
         loss.backward()
         optimizer.step()
 
-        return loss.item()
+        pred = torch.argmax(logits, -1)
+        f1, acc = f1_score(truth, pred), accuracy_score(truth, pred)
 
-    def evaluate(self, data, criterion, device):
+        return loss.item(), f1, acc
+
+    def evaluate(self, data, device):
         self.eval()
+        truth = data.y.to(device).long()
         logits = self.forward(data.x, data.edge_index, data.batch)
-        loss = criterion(logits, data.y.to(device).long())
 
-
+        pred = torch.argmax(logits, -1)
+        f1, acc = f1_score(truth, pred), accuracy_score(truth, pred)
+        return f1, acc
