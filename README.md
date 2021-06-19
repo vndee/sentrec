@@ -30,6 +30,7 @@
 | SEAL     |     |
 
 </p>
+
 #### References
 
 - Zhang, M., & Chen, Y. (2018). **Link Prediction Based on Graph Neural Networks.** NeurIPS.
