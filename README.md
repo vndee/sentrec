@@ -11,17 +11,25 @@
 - [x] R-GCN  
 - [x] SEAL
 
-#### Learning strategy:
+#### TODO:
 
-- [x] Single task: representation -> `[neg, neu, pos, nan]`
-- [ ] Multiple task: representation -> `[nan, ext] + [neg, neu, pos]`
+- [ ] Prepare dataset (load, preprocess, dump).
+- [ ] Fine-tuning pre-trained Transformers model for reviews rating prediction. 
 
-#### Mini-batches sampler:
 
-- [x] Cluster GCN
-- [ ] Graph SAINT
-- [ ] Neighbor Sampler
+#### Experiment
 
+<p align="center">
+
+| Variant  | MSE |
+|----------|-----|
+| Baseline |     |
+| GCN      |     |
+| RGCN     |     |
+| SAGE     |     |
+| SEAL     |     |
+
+</p>
 #### References
 
 - Zhang, M., & Chen, Y. (2018). **Link Prediction Based on Graph Neural Networks.** NeurIPS.

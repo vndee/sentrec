@@ -1,10 +1,20 @@
+import time
 import torch
+import pickle
 import numpy as np
 import pandas as pd
 from typing import List
 from torch_geometric.data import Data
+from datetime import timedelta
+from transformers import AutoTokenizer, AutoModel
 
-from transformers import AutoTokenizer
+
+def chunks(lst, n, device):
+    for i in range(0, lst["input_ids"].shape[0], n):
+        yield {
+            "input_ids": lst["input_ids"][i: i + n].to(device),
+            "attention_mask": lst["attention_mask"][i: i + n].to(device)
+        }
 
 
 class AmazonFineFoodsReviews(object):
@@ -28,12 +38,15 @@ class AmazonFineFoodsReviews(object):
 
         return x
 
-    def build_graph(self, text_feature=True, language_model_name='bert-base-cased', max_length=512):
+    def build_graph(self, text_feature=True, language_model_name='bert-base-cased', max_length=512, batch_size=16,
+                    device='cpu'):
         """
         Build graph from reviews
         :param text_feature:
         :param language_model_name:
         :param max_length:
+        :param batch_size:
+        :param device:
         :return:
         """
         user_ids = AmazonFineFoodsReviews.compress(self.df.UserId.tolist())
@@ -46,21 +59,47 @@ class AmazonFineFoodsReviews(object):
 
         edge_index = torch.tensor(np.concatenate((user_ids, product_ids), 0), dtype=torch.long)
 
-        self.df.Score = self.df.Score.apply(lambda x: 0 if x < 3 else 1 if x == 3 else 2)
+        # self.df.Score = self.df.Score.apply(lambda x: 0 if x < 3 else 1 if x == 3 else 2)
         scores = self.df.Score.tolist()
 
         if text_feature is True:
             text = self.df.Text.tolist()
             tokenizer = AutoTokenizer.from_pretrained(language_model_name)
-            tokenized_text = tokenizer(text, padding=True, max_length=max_length, return_tensors='pt',
+            tokenized_text = tokenizer(text, padding=True, truncation=True, max_length=max_length, return_tensors='pt',
                                        verbose=True)
 
-            edge_attr = torch.cat(
-                [tokenized_text['input_ids'].unsqueeze(1), tokenized_text['token_type_ids'].unsqueeze(1),
-                 tokenized_text['attention_mask'].unsqueeze(1)], 1)
+            print("Text embedding...")
+            model = AutoModel.from_pretrained(language_model_name)
+            le, edge_attr, cnt, t0 = tokenized_text["input_ids"].shape[0], None, 0, time.time()
 
-            return Data(x=torch.ones(1 + np.max(product_ids), 1), edge_index=edge_index, edge_attr=edge_attr,
-                        y=torch.tensor(scores, dtype=torch.long))
+            for inp in chunks(tokenized_text, batch_size, device):
+                cnt = cnt + 1
+                attr = model(**inp)
+
+                if device == 'cuda':
+                    attr = attr.pooler_output.cpu().detach().numpy()
+                else:
+                    attr = attr.pooler_output.detach().numpy()
+
+                edge_attr = (
+                    np.atleast_1d(attr)
+                    if edge_attr is None
+                    else np.concatenate([edge_attr, attr])
+                )
+
+                els = time.time() - t0
+                est = (els / cnt) * ((le / batch_size) - cnt)
+                print(
+                    f"Embedded {cnt}/{le // batch_size} els: {timedelta(seconds=els)} - est: {timedelta(seconds=est)}")
+
+            print("Edge attr:", edge_attr.shape)
+
+            # edge_attr = torch.cat(
+            #     [tokenized_text['input_ids'].unsqueeze(1), tokenized_text['token_type_ids'].unsqueeze(1),
+            #      tokenized_text['attention_mask'].unsqueeze(1)], 1)
+
+            return Data(x=torch.ones(1 + np.max(product_ids), 1), edge_index=edge_index,
+                        y=torch.tensor(scores, dtype=torch.long)), torch.from_numpy(edge_attr)
 
         return Data(x=torch.ones(1 + np.max(product_ids), 1), edge_index=edge_index,
-                    y=torch.tensor(scores, dtype=torch.long))
+                    y=torch.tensor(scores, dtype=torch.long)), None

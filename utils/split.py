@@ -48,23 +48,29 @@ def split_graph(data, val_ratio=0.1, test_ratio=0.1, random_state=42):
     # create validation set
     r, c, y = row[: n_v], col[: n_v], target[: n_v]
     data.val_edge_index = torch.stack([r, c], dim=0)
-    data.val_target_index, dist = y, torch.bincount(y)
-    val_neg = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
-    data.val_neg_index = negative_sampling(edge_index=data.edge_index, num_nodes=num_nodes, num_neg_samples=val_neg)
+    # data.val_edge_attr_index = torch.range(0, n_v - 1, dtype=torch.long)
+    data.val_target_index = y
+
+    # val_neg = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
+    # data.val_neg_index = negative_sampling(edge_index=data.edge_index, num_nodes=num_nodes, num_neg_samples=val_neg)
 
     # create test set
     r, c, y = row[n_v: n_v + n_t], col[n_v: n_v + n_t], target[n_v: n_v + n_t]
     data.test_edge_index = torch.stack([r, c], dim=0)
-    data.test_target_index, dist = y, torch.bincount(y)
-    test_neg = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
-    data.test_neg_index = negative_sampling(edge_index=data.edge_index, num_nodes=num_nodes, num_neg_samples=test_neg)
+    # data.test_edge_attr_index = torch.range(n_v, n_v + n_t - 1, dtype=torch.long)
+    data.test_target_index = y
+
+    # test_neg = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
+    # data.test_neg_index = negative_sampling(edge_index=data.edge_index, num_nodes=num_nodes, num_neg_samples=test_neg)
 
     # create train set
     r, c, y = row[n_v + n_t:], col[n_v + n_t:], target[n_v + n_t:]
     data.train_edge_index = torch.stack([r, c], dim=0)
-    data.train_target_index, dist = y, torch.bincount(y)
-    train_neg = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
-    data.train_neg_index = negative_sampling(edge_index=data.edge_index, num_nodes=num_nodes, num_neg_samples=train_neg)
+    # data.train_edge_attr_index = torch.range(n_v + n_t, row.shape[0] - 1, dtype=torch.long)
+    data.train_target_index = y
+
+    # train_neg = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
+    # data.train_neg_index = negative_sampling(edge_index=data.edge_index, num_nodes=num_nodes, num_neg_samples=train_neg)
 
     return data
 

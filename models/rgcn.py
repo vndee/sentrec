@@ -1,6 +1,7 @@
 import torch
 from torch_geometric.nn import RGCNConv
 from sklearn.metrics import f1_score, accuracy_score
+from models.transformers_regressor import TransformerClassifier
 
 
 class RGCNNet(torch.nn.Module):
@@ -70,3 +71,94 @@ class RGCNNet(torch.nn.Module):
             f1.append(f1_score(link_labels.cpu(), link_preds.cpu(), average='macro'))
 
         return acc, f1
+
+
+class RGCNNetMultiTask(torch.nn.Module):
+    def __init__(self, num_classes=3, hidden_dim=768):
+        super(RGCNNetMultiTask, self).__init__()
+        self.conv1 = RGCNConv(in_channels=1, out_channels=128, num_relations=1)
+        self.conv2 = RGCNConv(in_channels=128, out_channels=64, num_relations=1)
+        self.linear1 = torch.nn.Linear(hidden_dim + 64, 128)
+        self.relu = torch.nn.ReLU()
+        self.linear2 = torch.nn.Linear(128, 1)
+        self.softmax = torch.nn.Softmax(dim=-1)
+
+    def forward(self, data, edge_index, edge_map):
+        z = self.encode(data)
+
+        edge_attr = torch.zeros(edge_index.shape[1], edge_map.get_dim())
+        for it in range(edge_index.shape[1]):
+            u, v = edge_index[0][it].item(), edge_index[1][it].item()
+            edge_attr[it] = edge_map.get(u, v)
+
+        return self.decode(z, edge_index, edge_attr)
+
+    def encode(self, data):
+        x = self.conv1(data.x, data.train_edge_index, torch.ones(data.train_edge_index.shape[1])).relu()
+        x = self.conv2(x, data.train_edge_index, torch.ones(data.train_edge_index.shape[1])).relu()
+        return x
+
+    def decode(self, z, edge_index, edge_attr):
+        node_representation = (z[edge_index[0]] * z[edge_index[1]])
+        joint_representation = torch.cat([node_representation, edge_attr], dim=-1)
+        x = self.linear1(joint_representation)
+        x = self.relu(x)
+        x = self.linear2(x)
+        return x
+
+    def decode_all(self, z):
+        prob_adj = z @ z.t()
+        return (prob_adj > 0).nonzero(as_tuple=False).t()
+
+    @staticmethod
+    def get_link_labels(neg_edge_index: torch.Tensor,
+                        target_value: torch.Tensor,
+                        device: torch.device):
+        link_labels = torch.cat([target_value, torch.zeros(neg_edge_index.size(1), dtype=torch.long, device=device)],
+                                dim=-1)
+        return link_labels.long()
+
+    def learn(self, data, optimizer: torch.optim.Optimizer, device: torch.device, edge_map, criterion):
+        self.train()
+        optimizer.zero_grad()
+
+        z = self.encode(data)
+
+        edge_attr = torch.zeros(data.train_edge_index.shape[1], edge_map.get_dim())
+        for it in range(data.train_edge_index.shape[1]):
+            u, v = data.train_edge_index[0][it].item(), data.train_edge_index[1][it].item()
+            edge_attr[it] = edge_map.get(u, v)
+
+        link_logits = self.decode(z, data.train_edge_index, edge_attr.to(device))
+        loss = criterion(link_logits, data.train_target_index.unsqueeze(-1).float())
+        loss.backward()
+        optimizer.step()
+
+        link_preds = torch.argmax(link_logits, dim=-1)
+        # return loss.item(), accuracy_score(data.train_target_index, link_preds.cpu()), f1_score(data.train_target_index,
+        #                                                                                         link_preds.cpu(),
+        #                                                                                         average='macro')
+
+        return loss.item()
+
+    @torch.no_grad()
+    def evaluate(self, data, edge_map, criterion, device: torch.device):
+        self.eval()
+        acc, f1, losses = [], [], []
+        for prfx in ['val', 'test']:
+            tgt_edge_index = data[f'{prfx}_target_index']
+            pos_edge_index = data[f'{prfx}_edge_index']
+
+            edge_attr = torch.zeros(pos_edge_index.shape[1], edge_map.get_dim())
+            for it in range(pos_edge_index.shape[1]):
+                u, v = pos_edge_index[0][it].item(), pos_edge_index[1][it].item()
+                edge_attr[it] = edge_map.get(u, v)
+
+            z = self.encode(data)
+            link_logits = self.decode(z, pos_edge_index, edge_attr.to(device))
+            losses.append(criterion(link_logits, tgt_edge_index.unsqueeze(-1).float()))
+            # link_preds = torch.argmax(link_logits, dim=-1)
+            # acc.append(accuracy_score(tgt_edge_index, link_preds.cpu()))
+            # f1.append(f1_score(tgt_edge_index, link_preds.cpu(), average='macro'))
+
+        return losses

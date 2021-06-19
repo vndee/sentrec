@@ -51,22 +51,22 @@ def to_undirected(data):
 
     data.train_edge_index, data.train_target_index = to_undirected_edge_index(edge_index=data.train_edge_index,
                                                                               target_index=data.train_target_index)
-    dist = torch.bincount(data.train_target_index)
-    tr_n = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
-    data.train_neg_index = negative_sampling(edge_index=data.edge_index, num_neg_samples=tr_n)
-    data.train_neg_index, _ = to_undirected_edge_index(edge_index=data.train_neg_index, target_index=None)
+    # dist = torch.bincount(data.train_target_index)
+    # tr_n = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
+    # data.train_neg_index = negative_sampling(edge_index=data.edge_index, num_neg_samples=tr_n)
+    # data.train_neg_index, _ = to_undirected_edge_index(edge_index=data.train_neg_index, target_index=None)
 
     data.val_edge_index, data.val_target_index = to_undirected_edge_index(edge_index=data.val_edge_index,
                                                                           target_index=data.val_target_index)
-    dist = torch.bincount(data.val_target_index)
-    v_n = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
-    data.val_neg_index = negative_sampling(edge_index=data.edge_index, num_neg_samples=v_n)
-    data.val_neg_index, _ = to_undirected_edge_index(edge_index=data.val_neg_index, target_index=None)
+    # dist = torch.bincount(data.val_target_index)
+    # v_n = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
+    # data.val_neg_index = negative_sampling(edge_index=data.edge_index, num_neg_samples=v_n)
+    # data.val_neg_index, _ = to_undirected_edge_index(edge_index=data.val_neg_index, target_index=None)
 
     data.test_edge_index, data.test_target_index = to_undirected_edge_index(edge_index=data.test_edge_index,
                                                                             target_index=data.test_target_index)
-    dist = torch.bincount(data.test_target_index)
-    t_n = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
-    data.test_neg_index = negative_sampling(edge_index=data.edge_index, num_neg_samples=t_n)
-    data.test_neg_index, _ = to_undirected_edge_index(edge_index=data.test_neg_index, target_index=None)
+    # dist = torch.bincount(data.test_target_index)
+    # t_n = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
+    # data.test_neg_index = negative_sampling(edge_index=data.edge_index, num_neg_samples=t_n)
+    # data.test_neg_index, _ = to_undirected_edge_index(edge_index=data.test_neg_index, target_index=None)
     return data
