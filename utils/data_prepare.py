@@ -23,7 +23,7 @@ class AmazonFineFoodsReviews(object):
         self.df = pd.read_csv(database_path)
         print(f'Data:\n{self.df.describe()}')
         print(self.df.columns)
-        self.df = self.df[:100]
+        # self.df = self.df[:100]
 
     @staticmethod
     def compress(x: List) -> List:
@@ -69,7 +69,7 @@ class AmazonFineFoodsReviews(object):
                                        verbose=True)
 
             print("Text embedding...")
-            model = AutoModel.from_pretrained(language_model_name)
+            model = AutoModel.from_pretrained(language_model_name).to(device)
             le, edge_attr, cnt, t0 = tokenized_text["input_ids"].shape[0], None, 0, time.time()
 
             for inp in chunks(tokenized_text, batch_size, device):
@@ -112,7 +112,7 @@ def dump(file_path, obj):
 
 if __name__ == '__main__':
     data = AmazonFineFoodsReviews("data/Reviews.csv")
-    graph, edge_attr, tokenized_text = data.build_graph(text_feature=True)
+    graph, edge_attr, tokenized_text = data.build_graph(text_feature=True, device='cuda', batch_size=16)
 
     dump("data/package/graph.pkl", graph)
     dump("data/package/edge_attr.pkl", edge_attr)
