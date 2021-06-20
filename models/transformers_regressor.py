@@ -3,7 +3,7 @@ import torch
 import pickle
 import numpy as np
 import torch.nn as nn
-from tqdm import tqdm
+from tqdm.notebook import tqdm
 from transformers import AutoModel
 import torch.backends.cudnn as cudnn
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
@@ -42,6 +42,7 @@ class MyDataset(Dataset):
     def __len__(self):
         return self.__y.shape[0]
 
+train_losses, val_losses = [], []
 
 # test
 if __name__ == "__main__":
@@ -54,16 +55,16 @@ if __name__ == "__main__":
     cudnn.benchmark = True
     cudnn.deterministic = True
 
-    with open("data/package/graph.pkl", "rb") as stream:
+    with open("graph.pkl", "rb") as stream:
         graph = pickle.loads(stream.read())
 
-    with open("data/package/tokenized_text.pkl", "rb") as stream:
+    with open("model.pt", "rb") as stream:
         edge_attr = pickle.loads(stream.read())
 
     target = graph.y - 1
     target = ((target - torch.min(target)) / (torch.max(target) - torch.min(target))).unsqueeze(-1)
 
-    lr = 0.001
+    lr = 3e-5
     net = TransformerRegressor()
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
     criterion = torch.nn.MSELoss()
@@ -82,7 +83,7 @@ if __name__ == "__main__":
                             num_workers=num_workers)
 
     device = 'cuda'
-    max_epoch = 5
+    max_epoch = 20
     net.to(device)
 
     for epoch in range(max_epoch):
@@ -91,20 +92,21 @@ if __name__ == "__main__":
         # training
         net.train()
         for x, t, y in tqdm(train_loader, total=len(train_loader), desc=f'Training {1 + epoch}/{max_epoch}'):
-            z = net(input_ids=x, attention_mask=t)
-            loss = criterion(z, y)
+            z = net(input_ids=x.to(device), attention_mask=t.to(device))
+            loss = criterion(z, y.to(device))
             loss.backward()
             train_loss += loss.item()
-            print(loss.item())
 
         # validating
         net.eval()
         with torch.no_grad():
             for x, t, y in tqdm(val_loader, total=len(val_loader), desc=f'Validation {1 + epoch}/{max_epoch}'):
-                z = net(input_ids=x, attention_mask=t)
-                loss = criterion(z, y)
+                z = net(input_ids=x.to(device), attention_mask=t.to(device))
+                loss = criterion(z, y.to(device))
                 val_loss += loss.item()
 
         train_loss, val_loss = train_loss / len(train_loader), val_loss / len(val_loader)
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
         print(f"Epoch {epoch + 1:04d}/{max_epoch:04d}: train: {train_loss:.8f} - val: {val_loss:.8f}")
 
