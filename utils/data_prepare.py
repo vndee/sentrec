@@ -70,36 +70,36 @@ class AmazonFineFoodsReviews(object):
 
             print("Text embedding...")
             model = AutoModel.from_pretrained(language_model_name).to(device)
-            le, edge_attr, cnt, t0 = tokenized_text["input_ids"].shape[0], None, 0, time.time()
+            # le, edge_attr, cnt, t0 = tokenized_text["input_ids"].shape[0], None, 0, time.time()
 
-            for inp in chunks(tokenized_text, batch_size, device):
-                cnt = cnt + 1
-                attr = model(**inp)
-
-                if device == 'cuda':
-                    attr = attr.pooler_output.cpu().detach().numpy()
-                else:
-                    attr = attr.pooler_output.detach().numpy()
-
-                edge_attr = (
-                    np.atleast_1d(attr)
-                    if edge_attr is None
-                    else np.concatenate([edge_attr, attr])
-                )
-
-                els = time.time() - t0
-                est = (els / cnt) * ((le / batch_size) - cnt)
-                print(
-                    f"Embedded {cnt}/{le // batch_size} els: {timedelta(seconds=els)} - est: {timedelta(seconds=est)}")
-
-            print("Edge attr:", edge_attr.shape)
+            # for inp in chunks(tokenized_text, batch_size, device):
+            #     cnt = cnt + 1
+            #     attr = model(**inp)
+            #
+            #     if device == 'cuda':
+            #         attr = attr.pooler_output.cpu().detach().numpy()
+            #     else:
+            #         attr = attr.pooler_output.detach().numpy()
+            #
+            #     edge_attr = (
+            #         np.atleast_1d(attr)
+            #         if edge_attr is None
+            #         else np.concatenate([edge_attr, attr])
+            #     )
+            #
+            #     els = time.time() - t0
+            #     est = (els / cnt) * ((le / batch_size) - cnt)
+            #     print(
+            #         f"Embedded {cnt}/{le // batch_size} els: {timedelta(seconds=els)} - est: {timedelta(seconds=est)}")
+            #
+            # print("Edge attr:", edge_attr.shape)
 
             # edge_attr = torch.cat(
             #     [tokenized_text['input_ids'].unsqueeze(1), tokenized_text['token_type_ids'].unsqueeze(1),
             #      tokenized_text['attention_mask'].unsqueeze(1)], 1)
 
             return Data(x=torch.ones(1 + np.max(product_ids), 1), edge_index=edge_index,
-                        y=torch.tensor(scores, dtype=torch.long)), torch.from_numpy(edge_attr), tokenized_text
+                        y=torch.tensor(scores, dtype=torch.long)), None, tokenized_text
 
         return Data(x=torch.ones(1 + np.max(product_ids), 1), edge_index=edge_index,
                     y=torch.tensor(scores, dtype=torch.long)), None
@@ -115,6 +115,6 @@ if __name__ == '__main__':
     graph, edge_attr, tokenized_text = data.build_graph(text_feature=True, device='cuda', batch_size=16)
 
     dump("data/package/graph.pkl", graph)
-    dump("data/package/edge_attr.pkl", edge_attr)
+    # dump("data/package/edge_attr.pkl", edge_attr)
     dump("data/package/tokenized_text.pkl", tokenized_text)
 

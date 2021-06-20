@@ -42,7 +42,6 @@ class MyDataset(Dataset):
     def __len__(self):
         return self.__y.shape[0]
 
-train_losses, val_losses = [], []
 
 # test
 if __name__ == "__main__":
@@ -106,7 +105,5 @@ if __name__ == "__main__":
                 val_loss += loss.item()
 
         train_loss, val_loss = train_loss / len(train_loader), val_loss / len(val_loader)
-        train_losses.append(train_loss)
-        val_losses.append(val_loss)
         print(f"Epoch {epoch + 1:04d}/{max_epoch:04d}: train: {train_loss:.8f} - val: {val_loss:.8f}")
 
