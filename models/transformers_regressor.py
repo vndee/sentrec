@@ -3,6 +3,7 @@ import torch
 import pickle
 import numpy as np
 import torch.nn as nn
+from tqdm import tqdm
 from transformers import AutoModel
 import torch.backends.cudnn as cudnn
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
@@ -11,19 +12,18 @@ from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 class TransformerRegressor(nn.Module):
     def __init__(self, language_model_shortcut='bert-base-cased', hidden_dim=768, inner_dim=128):
         super(TransformerRegressor, self).__init__()
-        # self.backbone = AutoModel.from_pretrained(language_model_shortcut)
+        self.backbone = AutoModel.from_pretrained(language_model_shortcut)
         self.linear1 = nn.Linear(hidden_dim, inner_dim)
         self.relu = nn.ReLU()
         self.linear2 = nn.Linear(inner_dim, 1)
 
-    def forward(self, x):
-        # x = self.backbone({
-        #     "input_ids": input_ids,
-        #     "attention_mask": attention_mask,
-        #     "token_type_ids": token_type_ids
-        # })
+    def forward(self, input_ids, attention_mask):
+        x = self.backbone(**{
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+        })
 
-        x = self.linear1(x)
+        x = self.linear1(x.pooler_output)
         x = self.relu(x)
         x = self.linear2(x)
         return x
@@ -32,15 +32,15 @@ class TransformerRegressor(nn.Module):
 class MyDataset(Dataset):
     def __init__(self, x, y):
         super(MyDataset, self).__init__()
-        assert x.shape[0] == y.shape[0], ValueError("Dataset dimensions wrong")
-        self.__x = x
+        self.input_ids = x["input_ids"]
+        self.attention_mask = x["attention_mask"]
         self.__y = y
 
     def __getitem__(self, it):
-        return self.__x[it], self.__y[it]
+        return self.input_ids[it], self.attention_mask[it], self.__y[it]
 
     def __len__(self):
-        return self.__x.shape[0]
+        return self.__y.shape[0]
 
 
 # test
@@ -54,10 +54,10 @@ if __name__ == "__main__":
     cudnn.benchmark = True
     cudnn.deterministic = True
 
-    with open("data/graph.pkl", "rb") as stream:
+    with open("data/package/graph.pkl", "rb") as stream:
         graph = pickle.loads(stream.read())
 
-    with open("data/edge_attr.pkl", "rb") as stream:
+    with open("data/package/tokenized_text.pkl", "rb") as stream:
         edge_attr = pickle.loads(stream.read())
 
     target = graph.y - 1
@@ -81,30 +81,30 @@ if __name__ == "__main__":
     val_loader = DataLoader(dataset, batch_size=batch_size, sampler=SubsetRandomSampler(val_index), pin_memory=True,
                             num_workers=num_workers)
 
+    device = 'cuda'
     max_epoch = 5
-    losses = [[] for x in range(5)]
+    net.to(device)
+
     for epoch in range(max_epoch):
         train_loss, val_loss = 0., 0.
 
         # training
         net.train()
-        for x, y in train_loader:
-            z = net(x)
+        for x, t, y in tqdm(train_loader, total=len(train_loader), desc=f'Training {1 + epoch}/{max_epoch}'):
+            z = net(input_ids=x, attention_mask=t)
             loss = criterion(z, y)
             loss.backward()
             train_loss += loss.item()
-            losses[epoch].append(loss.item())
+            print(loss.item())
 
         # validating
         net.eval()
         with torch.no_grad():
-            for x, y in val_loader:
-                z = net(x)
+            for x, t, y in tqdm(val_loader, total=len(val_loader), desc=f'Validation {1 + epoch}/{max_epoch}'):
+                z = net(input_ids=x, attention_mask=t)
                 loss = criterion(z, y)
                 val_loss += loss.item()
 
         train_loss, val_loss = train_loss / len(train_loader), val_loss / len(val_loader)
         print(f"Epoch {epoch + 1:04d}/{max_epoch:04d}: train: {train_loss:.8f} - val: {val_loss:.8f}")
 
-    for i in losses:
-        print(i)
