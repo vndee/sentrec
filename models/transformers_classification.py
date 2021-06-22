@@ -49,7 +49,7 @@ def concat(x, y):
 
 def load_data(file):
     reviews = pd.read_csv(f"{file}.csv")
-    return np.array(reviews.Text), np.array(reviews.Score)
+    return np.array(reviews.Text), np.array(reviews.Score) - 1
 
 
 if __name__ == '__main__':

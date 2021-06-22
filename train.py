@@ -60,7 +60,7 @@ if __name__ == '__main__':
     with open(args.edge_attr_file, "rb") as stream:
         edge_attr = pickle.loads(stream.read())
 
-    edge_map = EdgeHashMap(graph.edge_index, edge_attr[:10000])
+    edge_map = EdgeHashMap(graph.edge_index, edge_attr)
     del edge_attr
 
     if args.model in ['gcn', 'rgcn', 'sage']:
