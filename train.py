@@ -42,7 +42,7 @@ if __name__ == '__main__':
                           help='Pre-trained language models shortcut')
     argument.add_argument('-r', '--learning_rate', type=float, default=0.01, help='Model learning rate')
     argument.add_argument('-d', '--device', type=str, default='cpu', help='Training device')
-    argument.add_argument('-e', '--epoch', type=int, default=10000, help='The number of epoch')
+    argument.add_argument('-e', '--epoch', type=int, default=10, help='The number of epoch')
     argument.add_argument('-t', '--text_feature', type=bool, default=True, help='Using text feature or not')
     argument.add_argument('-s', '--multi_task', type=bool, default=False, help='Using multi-task training')
     argument.add_argument('-m', '--max_length', type=int, default=512, help='Reviews max length')
@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
         net = net.to(args.device)
 
-        criterion = torch.nn.CrossEntropyLoss(weight=1 - (torch.bincount(graph.y) / graph.y.shape[0]))
+        criterion = torch.nn.CrossEntropyLoss()
         # criterion = torch.nn.MSELoss()
         optim = torch.optim.Adam(params=net.parameters(), lr=args.learning_rate)
 
