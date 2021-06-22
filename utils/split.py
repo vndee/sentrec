@@ -31,7 +31,7 @@ def split_graph(data, val_ratio=0.1, test_ratio=0.1, random_state=42):
     """
     assert 'batch' not in data
 
-    num_nodes = data.num_nodes
+    # num_nodes = data.num_nodes
     row, col = data.edge_index
     target = data.y
 
@@ -40,7 +40,7 @@ def split_graph(data, val_ratio=0.1, test_ratio=0.1, random_state=42):
     row, col, target = row[mask], col[mask], target[mask]
 
     n_v = int(math.floor(val_ratio * row.size(0)))
-    n_t = int(math.floor(test_ratio * row.size(0)))
+    # n_t = int(math.floor(test_ratio * row.size(0)))
 
     perm = torch.randperm(row.size(0))
     row, col, target = row[perm], col[perm], target[perm]
@@ -55,16 +55,16 @@ def split_graph(data, val_ratio=0.1, test_ratio=0.1, random_state=42):
     # data.val_neg_index = negative_sampling(edge_index=data.edge_index, num_nodes=num_nodes, num_neg_samples=val_neg)
 
     # create test set
-    r, c, y = row[n_v: n_v + n_t], col[n_v: n_v + n_t], target[n_v: n_v + n_t]
-    data.test_edge_index = torch.stack([r, c], dim=0)
-    # data.test_edge_attr_index = torch.range(n_v, n_v + n_t - 1, dtype=torch.long)
-    data.test_target_index = y
+    # r, c, y = row[n_v: n_v + n_t], col[n_v: n_v + n_t], target[n_v: n_v + n_t]
+    # data.test_edge_index = torch.stack([r, c], dim=0)
+    # # data.test_edge_attr_index = torch.range(n_v, n_v + n_t - 1, dtype=torch.long)
+    # data.test_target_index = y
 
     # test_neg = int(math.floor((1.0 * dist[dist.nonzero()]).mean().item()))
     # data.test_neg_index = negative_sampling(edge_index=data.edge_index, num_nodes=num_nodes, num_neg_samples=test_neg)
 
     # create train set
-    r, c, y = row[n_v + n_t:], col[n_v + n_t:], target[n_v + n_t:]
+    r, c, y = row[n_v:], col[n_v:], target[n_v:]
     data.train_edge_index = torch.stack([r, c], dim=0)
     # data.train_edge_attr_index = torch.range(n_v + n_t, row.shape[0] - 1, dtype=torch.long)
     data.train_target_index = y
