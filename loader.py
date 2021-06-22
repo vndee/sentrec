@@ -24,7 +24,7 @@ class AmazonFineFoodsReviews(object):
         self.df = pd.read_csv(database_path)
         print(f'Data:\n{self.df.describe()}')
         print(self.df.columns)
-        # self.df = self.df[:10000]
+        self.df = self.df[:1000]
 
     @staticmethod
     def compress(x: List) -> List:
@@ -39,15 +39,10 @@ class AmazonFineFoodsReviews(object):
 
         return x
 
-    def build_graph(self, text_feature=False, language_model_name='bert-base-cased', max_length=512, batch_size=16,
-                    device='cpu'):
+    def build_graph(self, text_feature=False):
         """
         Build graph from reviews
         :param text_feature:
-        :param language_model_name:
-        :param max_length:
-        :param batch_size:
-        :param device:
         :return:
         """
         user_ids = AmazonFineFoodsReviews.compress(self.df.UserId.tolist())

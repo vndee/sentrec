@@ -7,9 +7,9 @@ from torch_geometric.nn import GCNConv, global_sort_pool
 from torch.nn import ModuleList, Linear, Conv1d, MaxPool1d, Softmax
 
 
-class SEALNet(torch.nn.Module):
+class SEALJointRepresentation(torch.nn.Module):
     def __init__(self, dataset, hidden_channels=32, num_layers=3, num_classes=4, GNN=GCNConv, k=0.6):
-        super(SEALNet, self).__init__()
+        super(SEALJointRepresentation, self).__init__()
 
         if k < 1:  # Transform percentile to number.
             num_nodes = sorted([data.num_nodes for data in dataset.train])
@@ -35,7 +35,7 @@ class SEALNet(torch.nn.Module):
         self.lin2 = Linear(128, num_classes)
         self.softmax = Softmax(dim=-1)
 
-    def forward(self, x, edge_index, batch):
+    def forward(self, x, edge_index, batch, edge_attr):
         xs = [x]
         for conv in self.convs:
             xs += [torch.tanh(conv(xs[-1], edge_index))]
@@ -60,7 +60,7 @@ class SEALNet(torch.nn.Module):
         optimizer.zero_grad()
 
         truth = data.y.to(device).long()
-        logits = self.forward(data.x, data.edge_index, data.batch)
+        logits = self.forward(data.x, data.edge_index, data.batch, data.edge_attr)
         loss = criterion(logits, truth)
         loss.backward()
         optimizer.step()
