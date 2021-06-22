@@ -137,7 +137,7 @@ class RGCNJointRepresentation(torch.nn.Module):
             edge_attr[it] = torch.from_numpy(edge_map.get(u, v)).float()
 
         link_logits = self.decode(z, data.train_edge_index, edge_attr.to(device))
-        loss = criterion(link_logits, data.train_target_index)
+        loss = criterion(link_logits, data.train_target_index.to(device))
         loss.backward()
         optimizer.step()
 
@@ -160,7 +160,7 @@ class RGCNJointRepresentation(torch.nn.Module):
 
         z = self.encode(data)
         link_logits = self.decode(z, pos_edge_index, edge_attr.to(device))
-        loss = criterion(link_logits, tgt_edge_index)
+        loss = criterion(link_logits, tgt_edge_index.to(device))
 
         link_preds = torch.argmax(link_logits, dim=-1)
         acc = accuracy_score(tgt_edge_index, link_preds.cpu())

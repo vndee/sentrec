@@ -4,7 +4,7 @@ import pickle
 import random
 import argparse
 import numpy as np
-
+from tqdm import tqdm
 from loader import AmazonFineFoodsReviews
 from torch_geometric.data import NeighborSampler
 from models import GCNNet, SAGE, RGCNNet, SEALNet, RGCNJointRepresentation
@@ -90,7 +90,7 @@ if __name__ == '__main__':
 
             total_val_loss, total_test_loss = 0., 0.
 
-            for cluster in cluster_data:
+            for cluster in tqdm(cluster_data, f"Training {1 + epoch}/{args.epoch}"):
                 cluster = split_graph(cluster)
                 cluster = to_undirected(cluster)
                 cluster = cluster.to(args.device)
