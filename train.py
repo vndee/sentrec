@@ -8,7 +8,7 @@ from tqdm import tqdm
 from loader import AmazonFineFoodsReviews
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import NeighborSampler
-from models import GCNNet, SAGE, RGCNNet, SEALNet, RGCNJointRepresentation
+from models import GCNJointRepresentation
 from torch_geometric.data import ClusterData, DataLoader
 from torch_geometric.data import GraphSAINTRandomWalkSampler
 from utils import SEALDataset, split_graph, verify_negative_edge, to_undirected, EdgeHashMap
@@ -75,21 +75,13 @@ if __name__ == '__main__':
         # cluster_data = GraphSAINTRandomWalkSampler(graph, walk_length=3, num_steps=100, batch_size=32)
         print('Graph partitioned..')
 
-        if args.model == 'gcn':
-            net = GCNNet()
-        elif args.model == 'rgcn':
-            net = RGCNJointRepresentation()
-        else:
-            net = SAGE()
-
+        net = GCNJointRepresentation(conv_type=args.model)
         net = net.to(args.device)
 
         criterion = torch.nn.CrossEntropyLoss()
-        # criterion = torch.nn.MSELoss()
         optim = torch.optim.Adam(params=net.parameters(), lr=args.learning_rate)
 
         best_perf = 0.
-
         for epoch in range(args.epoch):
             total_test_acc, total_test_f1 = 0., 0.
             cnt, total_train_loss, total_val_perf, total_temp_test_perf = 0, 0., 0., 0.
