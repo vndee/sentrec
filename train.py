@@ -1,10 +1,12 @@
 import os
+import time
 import torch
 import pickle
 import random
 import argparse
 import numpy as np
 from tqdm import tqdm
+from datetime import timedelta
 from loader import AmazonFineFoodsReviews
 from torch.utils.tensorboard import SummaryWriter
 from models import GCNJointRepresentation, SEALJointRepresentation
@@ -84,7 +86,7 @@ if __name__ == '__main__':
         criterion = torch.nn.CrossEntropyLoss()
         optim = torch.optim.Adam(params=net.parameters(), lr=args.learning_rate)
 
-        best_perf = 0.
+        best_perf, t0 = 0., time.time()
         for epoch in range(args.epoch):
             total_test_acc, total_test_f1 = 0., 0.
             cnt, total_train_loss, total_val_perf, total_temp_test_perf = 0, 0., 0., 0.
@@ -134,6 +136,10 @@ if __name__ == '__main__':
             writer.add_scalar('val_acc', avg_val_acc, epoch)
             writer.add_scalar('val_loss', avg_val_loss, epoch)
             writer.add_scalar('val_f1', avg_val_f1, epoch)
+
+            els = time.time() - t0
+            est = (els / (1 + epoch)) * (args.epoch - epoch - 1)
+            print(f"Time elapsed: {timedelta(seconds=els)} - Time estimate: {timedelta(seconds=est)}")
 
     elif args.model == 'seal':
         graph.edge_attr = edge_attr[:1000]
