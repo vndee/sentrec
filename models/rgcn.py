@@ -142,9 +142,8 @@ class RGCNJointRepresentation(torch.nn.Module):
         optimizer.step()
 
         link_preds = torch.argmax(link_logits, dim=-1)
-        return loss.item(), accuracy_score(data.train_target_index, link_preds.cpu()), f1_score(data.train_target_index,
-                                                                                                link_preds.cpu(),
-                                                                                                average='macro')
+        return loss.item(), accuracy_score(data.train_target_index, link_preds.cpu().numpy()), f1_score(
+            data.train_target_index, link_preds.cpu().numpy(), average='macro')
 
     @torch.no_grad()
     def evaluate(self, data, edge_map, criterion, device: torch.device):
@@ -163,7 +162,7 @@ class RGCNJointRepresentation(torch.nn.Module):
         loss = criterion(link_logits, tgt_edge_index.to(device))
 
         link_preds = torch.argmax(link_logits, dim=-1)
-        acc = accuracy_score(tgt_edge_index, link_preds.cpu())
-        f1 = f1_score(tgt_edge_index, link_preds.cpu(), average='macro')
+        acc = accuracy_score(tgt_edge_index, link_preds.cpu().numpy())
+        f1 = f1_score(tgt_edge_index, link_preds.cpu().numpy(), average='macro')
 
         return loss, acc, f1
