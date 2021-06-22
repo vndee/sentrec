@@ -6,6 +6,7 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from loader import AmazonFineFoodsReviews
+from torch.utils.tensorboard import SummaryWriter
 from torch_geometric.data import NeighborSampler
 from models import GCNNet, SAGE, RGCNNet, SEALNet, RGCNJointRepresentation
 from torch_geometric.data import ClusterData, DataLoader
@@ -36,11 +37,11 @@ def batch_evaluate(net, loader, device):
 
 if __name__ == '__main__':
     argument = argparse.ArgumentParser(description='Training job for Sentiment Graph for Recommendation')
-    argument.add_argument('-i', '--input', type=str, default='data/train.csv', help='Path to training data')
-    argument.add_argument('-f', '--edge_attr_file', type=str, default='data/train.vec', help='Path to edge attribute index')
+    argument.add_argument('-i', '--input', type=str, default='data/mini/train.csv', help='Path to training data')
+    argument.add_argument('-f', '--edge_attr_file', type=str, default='data/mini/train.vec', help='Path to edge attribute index')
     argument.add_argument('-l', '--language_model_shortcut', type=str, default='bert-base-cased',
                           help='Pre-trained language models shortcut')
-    argument.add_argument('-r', '--learning_rate', type=float, default=0.01, help='Model learning rate')
+    argument.add_argument('-r', '--learning_rate', type=float, default=1e-4, help='Model learning rate')
     argument.add_argument('-d', '--device', type=str, default='cpu', help='Training device')
     argument.add_argument('-e', '--epoch', type=int, default=10, help='The number of epoch')
     argument.add_argument('-t', '--text_feature', type=bool, default=True, help='Using text feature or not')
@@ -51,10 +52,12 @@ if __name__ == '__main__':
     argument.add_argument('-c', '--model', type=str, default='rgcn', help='Model')
     argument.add_argument('-b', '--batch_size', type=int, default=32, help='Batch size')
     argument.add_argument('-a', '--random_seed', type=int, default=42, help='Seed number')
+    argument.add_argument('-g', '--save_dir', type=str, default='data/weights/', help='Path to save dir')
     args = argument.parse_args()
     set_reproducibility_state(args.random_seed)
 
     print(args)
+    os.makedirs(args.save_dir, exist_ok=True)
     graph = AmazonFineFoodsReviews(database_path=args.input).build_graph()
 
     with open(args.edge_attr_file, "rb") as stream:
@@ -62,6 +65,9 @@ if __name__ == '__main__':
 
     edge_map = EdgeHashMap(graph.edge_index, edge_attr)
     del edge_attr
+
+    os.makedirs(os.path.join(args.save_dir, 'logs'), exist_ok=True)
+    writer = SummaryWriter(os.path.join(args.save_dir, 'logs'))
 
     if args.model in ['gcn', 'rgcn', 'sage']:
         cluster_data = ClusterData(graph, num_parts=args.num_partition, recursive=True)
@@ -82,7 +88,8 @@ if __name__ == '__main__':
         # criterion = torch.nn.MSELoss()
         optim = torch.optim.Adam(params=net.parameters(), lr=args.learning_rate)
 
-        best_val_perf, test_perf = 0., 0.
+        best_perf = 0.
+
         for epoch in range(args.epoch):
             total_test_acc, total_test_f1 = 0., 0.
             cnt, total_train_loss, total_val_perf, total_temp_test_perf = 0, 0., 0., 0.
@@ -122,6 +129,17 @@ if __name__ == '__main__':
                   f'train_acc: {avg_train_acc:.2f}, train_f1: {avg_train_f1:.2f}, '
                   f'val_loss: {avg_val_loss:.5f}, val_acc: {avg_val_acc:.2f}, val_f1: {avg_val_f1:.2f}')
 
+            if avg_train_acc > best_perf:
+                best_perf = avg_train_acc
+                torch.save(net.state_dict(), os.path.join(args.save_dir, 'best.pt'))
+
+            writer.add_scalar('train_acc', avg_train_acc, epoch)
+            writer.add_scalar('train_loss', avg_train_loss, epoch)
+            writer.add_scalar('train_f1', avg_train_f1, epoch)
+            writer.add_scalar('val_acc', avg_val_acc, epoch)
+            writer.add_scalar('val_loss', avg_val_loss, epoch)
+            writer.add_scalar('val_f1', avg_val_f1, epoch)
+
     elif args.model == 'seal':
         graph = split_graph(graph)
         graph = to_undirected(graph)
@@ -158,3 +176,5 @@ if __name__ == '__main__':
                   f'train_acc: {avg_train_acc:.2f}, train_f1: {avg_train_f1:.2f}, '
                   f'val_acc: {avg_val_acc:.2f}, val_f1: {avg_val_f1:.2f}, '
                   f'test_acc: {avg_test_acc:.2f}, test_f1: {avg_test_f1:.2f}')
+
+    writer.close()
