@@ -8,6 +8,7 @@ import numpy as np
 from tqdm import tqdm
 from datetime import timedelta
 from loader import AmazonFineFoodsReviews
+from transformers import AdamW, get_scheduler
 from torch.utils.tensorboard import SummaryWriter
 from models import GCNJointRepresentation, SEALJointRepresentation
 from torch_geometric.data import ClusterData, DataLoader
@@ -88,7 +89,14 @@ if __name__ == '__main__':
         net = net.to(args.device)
 
         criterion = torch.nn.CrossEntropyLoss()
-        optim = torch.optim.Adam(params=net.parameters(), lr=args.learning_rate)
+        optim = AdamW(net.parameters(), lr=args.learning_rate)
+
+        lr_scheduler = get_scheduler(
+            "linear",
+            optimizer=optim,
+            num_warmup_steps=0,
+            num_training_steps=args.epoch
+        )
 
         best_perf, t0 = 0., time.time()
         for epoch in range(args.epoch):
@@ -103,8 +111,8 @@ if __name__ == '__main__':
                 cluster = to_undirected(cluster)
                 cluster = cluster.to(args.device)
 
-                train_loss, train_acc, train_f1 = net.learn(data=cluster, optimizer=optim, criterion=criterion,
-                                                            edge_map=edge_map, device=args.device)
+                train_loss, train_acc, train_f1 = net.learn(data=cluster, scheduler=lr_scheduler, optimizer=optim,
+                                                            criterion=criterion, edge_map=edge_map, device=args.device)
                 val_loss, val_acc, val_f1 = net.evaluate(data=cluster, criterion=criterion, edge_map=edge_map,
                                                          device=args.device)
 
@@ -140,6 +148,7 @@ if __name__ == '__main__':
             writer.add_scalar('val_acc', avg_val_acc, epoch)
             writer.add_scalar('val_loss', avg_val_loss, epoch)
             writer.add_scalar('val_f1', avg_val_f1, epoch)
+            writer.add_scalar('learning_rate', lr_scheduler.get_lr(), epoch)
 
             els = time.time() - t0
             est = (els / (1 + epoch)) * (args.epoch - epoch - 1)

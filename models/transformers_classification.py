@@ -5,7 +5,7 @@ import torch
 import argparse
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
+from tqdm.notebook import tqdm
 from sklearn.metrics import classification_report, accuracy_score, f1_score
 from datetime import timedelta
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     argument_parser.add_argument('-l', '--learning_rate', type=int, default=5e-5, help='Model learning rate.')
     argument_parser.add_argument('-a', '--accumulation_steps', type=int, default=50,
                                  help='Gradient accumulation steps.')
-    argument_parser.add_argument('-d', '--device', type=str, default='cpu', help='Training device.')
+    argument_parser.add_argument('-d', '--device', type=str, default='cuda', help='Training device.')
     argument_parser.add_argument('-r', '--root', type=str, default='data', help='Directory to dataset.')
     argument_parser.add_argument('-g', '--data', type=str, default='VLSP2016',
                                  help='Which dataset use to train a.k.a (VLSP2016, UIT-VSFC, AIVIVN).')
@@ -82,8 +82,9 @@ if __name__ == '__main__':
     print(args)
 
     # load sentiment data
-    train_x, train_y = load_data("data/mini/train")
-    test_x, test_y = load_data("data/mini/test")
+    train_x, train_y = load_data("/content/gdrive/MyDrive/Dataset/AmazonFineFoodReviews/train")
+    test_x, test_y = load_data("/content/gdrive/MyDrive/Dataset/AmazonFineFoodReviews/test")
+
     print(f"Train X: {train_x.shape} - Train Y: {train_y.shape}")
     print(f"Test X: {test_x.shape} - Test Y: {test_y.shape}")
 
@@ -121,7 +122,7 @@ if __name__ == '__main__':
     for epoch in range(args.epoch):
         net.train()
         out, prd = None, None
-        for inp, attn, lb in tqdm(train_loader, desc=f"Training {epoch}/{args.epoch}"):
+        for inp, attn, lb in tqdm(train_loader, desc=f"Training {1 + epoch}/{args.epoch}"):
             inp, attn, lb = inp.to(args.device), attn.to(args.device), lb.to(args.device)
             outputs = net(input_ids=inp, attention_mask=attn, labels=lb)
             loss = outputs.loss
@@ -145,7 +146,7 @@ if __name__ == '__main__':
         net.eval()
         out, prd = None, None
         with torch.no_grad():
-            for inp, attn, lb in tqdm(val_loader, desc=f"Validating {epoch}/{args.epoch}"):
+            for inp, attn, lb in tqdm(val_loader, desc=f"Validating {1 + epoch}/{args.epoch}"):
                 inp, attn, lb = inp.to(args.device), attn.to(args.device), lb.to(args.device)
                 outputs = net(input_ids=inp, attention_mask=attn, labels=lb)
                 logits = outputs.logits
@@ -163,21 +164,21 @@ if __name__ == '__main__':
         print(
             f"Epoch {epoch + 1}/{args.epoch} - train_acc: {train_acc} - train_f1: {train_f1} - val_acc: {val_acc} - val_f1: {val_f1}")
 
-    out, prd = None, None
-    with torch.no_grad():
-        for inp, attn, lb in test_loader:
-            inp, attn, lb = inp.to(args.device), attn.to(args.device), lb.to(args.device)
-            outputs = net(input_ids=inp, attention_mask=attn, labels=lb)
-            logits = outputs.logits
-            predictions = torch.argmax(logits, dim=-1)
+        out, prd = None, None
+        with torch.no_grad():
+            for inp, attn, lb in tqdm(test_loader, f"Testing {1 + epoch}/{args.epoch}"):
+                inp, attn, lb = inp.to(args.device), attn.to(args.device), lb.to(args.device)
+                outputs = net(input_ids=inp, attention_mask=attn, labels=lb)
+                logits = outputs.logits
+                predictions = torch.argmax(logits, dim=-1)
 
-            if args.device == "cuda":
-                lb = lb.detach().cpu().numpy()
-                predictions = predictions.detach().cpu().numpy()
+                if args.device == "cuda":
+                    lb = lb.detach().cpu().numpy()
+                    predictions = predictions.detach().cpu().numpy()
 
-            prd = np.atleast_1d(lb) if prd is None else np.concatenate([prd, lb])
-            out = np.atleast_1d(predictions) if out is None else np.concatenate([out, predictions])
+                prd = np.atleast_1d(lb) if prd is None else np.concatenate([prd, lb])
+                out = np.atleast_1d(predictions) if out is None else np.concatenate([out, predictions])
 
-        test_acc, test_f1 = accuracy_score(prd, out), f1_score(prd, out, average="macro")
+            test_acc, test_f1 = accuracy_score(prd, out), f1_score(prd, out, average="macro")
 
-    print(f"Final test acc: {test_acc} - test f1: {test_f1}")
+        print(f"Final test acc: {test_acc} - test f1: {test_f1}")

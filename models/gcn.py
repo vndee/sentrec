@@ -67,7 +67,7 @@ class GCNJointRepresentation(torch.nn.Module):
                                 dim=-1)
         return link_labels.long()
 
-    def learn(self, data, optimizer: torch.optim.Optimizer, device: torch.device, edge_map, criterion):
+    def learn(self, data, optimizer: torch.optim.Optimizer, scheduler, device: torch.device, edge_map, criterion):
         self.train()
         optimizer.zero_grad()
 
@@ -82,6 +82,7 @@ class GCNJointRepresentation(torch.nn.Module):
         loss = criterion(link_logits, data.train_target_index.to(device))
         loss.backward()
         optimizer.step()
+        scheduler.step()
 
         link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
         data.train_target_index = data.train_target_index.cpu().detach().numpy()
