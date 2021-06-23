@@ -148,7 +148,7 @@ if __name__ == '__main__':
             writer.add_scalar('val_acc', avg_val_acc, epoch)
             writer.add_scalar('val_loss', avg_val_loss, epoch)
             writer.add_scalar('val_f1', avg_val_f1, epoch)
-            writer.add_scalar('learning_rate', lr_scheduler.get_lr(), epoch)
+            writer.add_scalar('learning_rate', lr_scheduler.get_lr()[0], epoch)
 
             els = time.time() - t0
             est = (els / (1 + epoch)) * (args.epoch - epoch - 1)
