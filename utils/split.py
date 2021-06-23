@@ -19,7 +19,7 @@ def sample(high: int, size: int, device=None):
     return torch.tensor(random.sample(range(high), size), device=device)
 
 
-def split_graph(data, val_ratio=0.1):
+def split_graph(data, pivot=135000):
     """
     Train, val, test split for graph
     :param data:
@@ -37,18 +37,18 @@ def split_graph(data, val_ratio=0.1):
     mask = row < col
     row, col, target = row[mask], col[mask], target[mask]
 
-    n_v = int(math.floor(val_ratio * row.size(0)))
+    # n_v = int(math.floor(val_ratio * row.size(0)))
 
     perm = torch.randperm(row.size(0))
     row, col, target = row[perm], col[perm], target[perm]
 
     # create validation set
-    r, c, y = row[: n_v], col[: n_v], target[: n_v]
+    r, c, y = row[pivot:], col[pivot:], target[pivot:]
     data.val_edge_index = torch.stack([r, c], dim=0)
     data.val_target_index = y
 
     # create train set
-    r, c, y = row[n_v:], col[n_v:], target[n_v:]
+    r, c, y = row[:pivot], col[:pivot], target[:pivot]
     data.train_edge_index = torch.stack([r, c], dim=0)
     data.train_target_index = y
 

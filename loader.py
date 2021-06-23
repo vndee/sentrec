@@ -19,12 +19,15 @@ def chunks(lst, n, device):
 
 
 class AmazonFineFoodsReviews(object):
-    def __init__(self, database_path: str):
+    def __init__(self, database_path: str, test_path=None):
         super(AmazonFineFoodsReviews, self).__init__()
-        self.df = pd.read_csv(database_path)
+        self.df = pd.read_csv(f"{database_path}.csv")
+        self.tdf = pd.read_csv(f"{test_path}.csv")
+        self.df["test"] = 0
+        self.tdf["test"] = 1
+        self.df = pd.concat([self.df, self.tdf])
         print(f'Data:\n{self.df.describe()}')
         print(self.df.columns)
-        self.df = self.df[:1000]
 
     @staticmethod
     def compress(x: List) -> List:

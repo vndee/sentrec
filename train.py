@@ -37,9 +37,8 @@ def batch_evaluate(net, loader, device):
 
 if __name__ == '__main__':
     argument = argparse.ArgumentParser(description='Training job for Sentiment Graph for Recommendation')
-    argument.add_argument('-i', '--input', type=str, default='data/mini/train.csv', help='Path to training data')
-    argument.add_argument('-f', '--edge_attr_file', type=str, default='data/mini/train.vec',
-                          help='Path to edge attribute index')
+    argument.add_argument('-i', '--input', type=str, default='data/mini/train', help='Path to training data')
+    argument.add_argument('-y', '--test', type=str, default='data/mini/test', help='Path to testing file')
     argument.add_argument('-l', '--language_model_shortcut', type=str, default='bert-base-cased',
                           help='Pre-trained language models shortcut')
     argument.add_argument('-r', '--learning_rate', type=float, default=1e-4, help='Model learning rate')
@@ -61,16 +60,21 @@ if __name__ == '__main__':
 
     print(args)
     os.makedirs(args.save_dir, exist_ok=True)
-    graph = AmazonFineFoodsReviews(database_path=args.input).build_graph()
+    graph = AmazonFineFoodsReviews(database_path=args.input, test_path=args.test).build_graph()
 
-    with open(args.edge_attr_file, "rb") as stream:
+    with open(f"{args.input}.vec", "rb") as stream:
         edge_attr = pickle.loads(stream.read())
 
+    with open(f"{args.test}.vec", "rb") as stream:
+        test_edge_attr = pickle.loads(stream.read())
+
+    pivot = edge_attr.shape[0]
+    edge_attr = np.concatenate([edge_attr, test_edge_attr])
     os.makedirs(os.path.join(args.save_dir, 'logs'), exist_ok=True)
     writer = SummaryWriter(os.path.join(args.save_dir, 'logs'))
 
     if args.model in ['gcn', 'rgcn', 'sage']:
-        edge_map = EdgeHashMap(graph.edge_index, edge_attr[:1000])
+        edge_map = EdgeHashMap(graph.edge_index, edge_attr)
         del edge_attr
 
         cluster_data = ClusterData(graph, num_parts=args.num_partition, recursive=True)
@@ -95,7 +99,7 @@ if __name__ == '__main__':
             total_val_loss, total_test_loss = 0., 0.
 
             for cluster in tqdm(cluster_data, f"Training {1 + epoch}/{args.epoch}"):
-                cluster = split_graph(cluster)
+                cluster = split_graph(cluster, pivot=pivot)
                 cluster = to_undirected(cluster)
                 cluster = cluster.to(args.device)
 
