@@ -82,7 +82,7 @@ class GCNJointRepresentation(torch.nn.Module):
         z = self.encode(data)
 
         preds, truth, losses = np.zeros((data.train_edge_index.shape[1], 1)), np.zeros(
-            (data.train_edge_index.shape[1], 1)), None, 0.
+            (data.train_edge_index.shape[1], 1)), 0.
         for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
                                     total=data.train_edge_index.shape[1] // bs):
             optimizer.zero_grad()
@@ -123,7 +123,7 @@ class GCNJointRepresentation(torch.nn.Module):
             z = self.encode(data)
 
             preds, truth, losses = np.zeros((data.train_edge_index.shape[1], 1)), np.zeros(
-                (data.train_edge_index.shape[1], 1)), None, 0.
+                (data.train_edge_index.shape[1], 1)), 0.
             for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
                                         total=pos_edge_index.shape[1] // bs):
                 out = self.lm(**{
