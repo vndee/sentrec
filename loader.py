@@ -10,12 +10,9 @@ from datetime import timedelta
 from transformers import AutoTokenizer, AutoModel
 
 
-def chunks(lst, n, device):
-    for i in range(0, lst["input_ids"].shape[0], n):
-        yield {
-            "input_ids": lst["input_ids"][i: i + n].to(device),
-            "attention_mask": lst["attention_mask"][i: i + n].to(device)
-        }
+def chunks(lst, n):
+    for i in range(0, len(lst), n):
+        yield lst[i: i + n]
 
 
 class AmazonFineFoodsReviews(object):
@@ -60,13 +57,6 @@ class AmazonFineFoodsReviews(object):
 
         # self.df.Score = self.df.Score.apply(lambda x: 0 if x < 3 else 1 if x == 3 else 2)
         scores = self.df.Score.astype(int).tolist()
-
-        fig, ax = plt.subplots()
-
-        ax.hist(scores, bins=np.arange(0, 6) + 0.5, ec="k")
-        ax.locator_params(axis='y', integer=True)
-
-        fig.savefig("data/build_graph_stat.png", dpi=300)
 
         if text_feature is True:
             return Data(x=torch.ones(1 + np.max(product_ids), 1), edge_index=edge_index,

@@ -7,8 +7,8 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from datetime import timedelta
-from loader import AmazonFineFoodsReviews
-from transformers import AdamW, get_scheduler
+from loader import AmazonFineFoodsReviews, chunks
+from transformers import AdamW, get_scheduler, AutoTokenizer
 from torch.utils.tensorboard import SummaryWriter
 from models import GCNJointRepresentation, SEALJointRepresentation
 from torch_geometric.data import ClusterData, DataLoader
@@ -44,7 +44,7 @@ if __name__ == '__main__':
                           help='Pre-trained language models shortcut')
     argument.add_argument('-r', '--learning_rate', type=float, default=1e-4, help='Model learning rate')
     argument.add_argument('-d', '--device', type=str, default='cpu', help='Training device')
-    argument.add_argument('-e', '--epoch', type=int, default=10, help='The number of epoch')
+    argument.add_argument('-e', '--epoch', type=int, default=1000, help='The number of epoch')
     argument.add_argument('-t', '--text_feature', type=bool, default=True, help='Using text feature or not')
     argument.add_argument('-s', '--multi_task', type=bool, default=False, help='Using multi-task training')
     argument.add_argument('-m', '--max_length', type=int, default=512, help='Reviews max length')
@@ -61,7 +61,26 @@ if __name__ == '__main__':
 
     print(args)
     os.makedirs(args.save_dir, exist_ok=True)
-    graph = AmazonFineFoodsReviews(database_path=args.input, test_path=args.test).build_graph()
+    graph, text = AmazonFineFoodsReviews(database_path=args.input, test_path=args.test).build_graph(
+        text_feature=args.text_feature)
+
+    if args.text_feature:
+        t0, input_ids, attention_mask = time.time(), None, None
+        tokenizer = AutoTokenizer.from_pretrained(args.language_model_shortcut)
+        for it, te in enumerate(chunks(text, args.batch_size) * 8):
+            tokenized = tokenizer(te, padding="max_length", truncation=True, max_length=args.max_length,
+                                  return_tensors="np")
+            inp, attn = tokenized["input_ids"], tokenized["attention_mask"]
+
+            input_ids = np.atleast_1d(inp) if input_ids is None else np.concatenate([input_ids, inp])
+            attention_mask = np.atleast_1d(attn) if attention_mask is None else np.concatenate([attention_mask, attn])
+
+            els = time.time() - t0
+            est = (els / (it + 1)) * ((len(text) / args.batch_size) - it - 1)
+            print(f"Tokenized elapsed {timedelta(seconds=els)} - estimate {timedelta(seconds=est)}")
+
+        print(input_ids.shape)
+        print(attention_mask.shape)
 
     with open(f"{args.input}.vec", "rb") as stream:
         edge_attr = pickle.loads(stream.read())
@@ -71,6 +90,10 @@ if __name__ == '__main__':
 
     pivot = edge_attr.shape[0]
     edge_attr = np.concatenate([edge_attr, test_edge_attr])
+
+    print(f"Graph: {graph.edge_index.shape}")
+    print(f"Edge: {edge_attr.shape}")
+
     os.makedirs(os.path.join(args.save_dir, 'logs'), exist_ok=True)
     writer = SummaryWriter(os.path.join(args.save_dir, 'logs'))
 
@@ -148,7 +171,7 @@ if __name__ == '__main__':
             writer.add_scalar('val_acc', avg_val_acc, epoch)
             writer.add_scalar('val_loss', avg_val_loss, epoch)
             writer.add_scalar('val_f1', avg_val_f1, epoch)
-            writer.add_scalar('learning_rate', lr_scheduler.get_lr()[0], epoch)
+            writer.add_scalar('learning_rate', lr_scheduler.get_last_lr()[0], epoch)
 
             els = time.time() - t0
             est = (els / (1 + epoch)) * (args.epoch - epoch - 1)

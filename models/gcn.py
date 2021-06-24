@@ -21,6 +21,9 @@ class GCNJointRepresentation(torch.nn.Module):
 
         self.conv_type = conv_type
 
+        # LM
+        self.lm = AutoModel.from_pretrained(language_model)
+
         # Join representation
         self.linear1 = torch.nn.Linear(hidden_dim + 64, 128)
         self.relu = torch.nn.ReLU()
