@@ -84,6 +84,7 @@ class GCNJointRepresentation(torch.nn.Module):
         preds, truth, losses = None, None, 0.
         for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
                                     total=data.train_edge_index.shape[1] // bs):
+            optimizer.zero_grad()
             out = self.lm(**{
                 "input_ids": inp.long().to(device),
                 "attention_mask": attn.long().to(device)
@@ -95,7 +96,7 @@ class GCNJointRepresentation(torch.nn.Module):
             loss = criterion(link_logits,
                              data.train_target_index[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)].to(
                                  device))
-            loss.backward()
+            loss.backward(retain_graph=True)
             optimizer.step()
             scheduler.step()
 
@@ -116,27 +117,28 @@ class GCNJointRepresentation(torch.nn.Module):
         tgt_edge_index = data[f'val_target_index']
         pos_edge_index = data[f'val_edge_index']
 
-        z = self.encode(data)
+        with torch.no_grad():
+            z = self.encode(data)
 
-        preds, truth, losses = None, None, 0.
-        for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
-                                    total=pos_edge_index.shape[1] // bs):
-            out = self.lm(**{
-                "input_ids": inp.long().to(device),
-                "attention_mask": attn.long().to(device)
-            })
+            preds, truth, losses = None, None, 0.
+            for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
+                                        total=pos_edge_index.shape[1] // bs):
+                out = self.lm(**{
+                    "input_ids": inp.long().to(device),
+                    "attention_mask": attn.long().to(device)
+                })
 
-            link_logits = self.decode(z, pos_edge_index[:, bs * it: min(pos_edge_index.shape[1], bs * it + bs)],
-                                      out.pooler_output)
-            loss = criterion(link_logits,
-                             pos_edge_index[bs * it: min(pos_edge_index.shape[1], bs * it + bs)].to(device))
+                link_logits = self.decode(z, pos_edge_index[:, bs * it: min(pos_edge_index.shape[1], bs * it + bs)],
+                                          out.pooler_output)
+                loss = criterion(link_logits,
+                                 pos_edge_index[bs * it: min(pos_edge_index.shape[1], bs * it + bs)].to(device))
 
-            losses = losses + loss.item()
-            link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
-            link_truth = tgt_edge_index.cpu().detach().numpy()
+                losses = losses + loss.item()
+                link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
+                link_truth = tgt_edge_index.cpu().detach().numpy()
 
-            preds = np.atleast_1d(link_preds) if preds is None else np.concatenate([preds, link_preds])
-            truth = np.atleast_1d(link_truth) if truth is None else np.concatenate([truth, link_truth])
+                preds = np.atleast_1d(link_preds) if preds is None else np.concatenate([preds, link_preds])
+                truth = np.atleast_1d(link_truth) if truth is None else np.concatenate([truth, link_truth])
 
-        return losses / (data.train_edge_index.shape[1] // bs), accuracy_score(truth, preds), f1_score(truth, preds,
-                                                                                                       average='macro')
+            return losses / (data.train_edge_index.shape[1] // bs), accuracy_score(truth, preds), f1_score(truth, preds,
+                                                                                                           average='macro')
