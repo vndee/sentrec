@@ -83,8 +83,7 @@ class GCNJointRepresentation(torch.nn.Module):
 
         preds, truth, losses = np.zeros((data.train_edge_index.shape[1])), np.zeros(
             (data.train_edge_index.shape[1])), 0.
-        for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
-                                    total=data.train_edge_index.shape[1] // bs):
+        for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation", total=len(edge_map)):
             optimizer.zero_grad()
             out = self.lm(**{
                 "input_ids": inp.long().to(device),
@@ -126,7 +125,7 @@ class GCNJointRepresentation(torch.nn.Module):
             preds, truth, losses = np.zeros((data.train_edge_index.shape[1])), np.zeros(
                 (data.train_edge_index.shape[1])), 0.
             for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
-                                        total=pos_edge_index.shape[1] // bs):
+                                        total=len(edge_map)):
                 out = self.lm(**{
                     "input_ids": inp.long().to(device),
                     "attention_mask": attn.long().to(device)
@@ -143,7 +142,7 @@ class GCNJointRepresentation(torch.nn.Module):
                              bs * it: min(data.train_edge_index.shape[1], bs * it + bs)].cpu().detach().numpy()
 
                 preds[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_preds
-                truth[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_truth
+                truth[bs * it: min(tgt_edge_index.shape[1], bs * it + bs)] = link_truth
 
             return losses / (data.train_edge_index.shape[1] // bs), accuracy_score(truth, preds), f1_score(truth, preds,
                                                                                                            average='macro')
