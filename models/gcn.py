@@ -91,11 +91,11 @@ class GCNJointRepresentation(torch.nn.Module):
             })
 
             link_logits = self.decode(z,
-                                      data.train_edge_index[:,
-                                      bs * it: min(data.train_edge_index.shape[1], bs * it + bs)],
+                                      data.edge_index[:,
+                                      bs * it: min(data.edge_index.shape[1], bs * it + bs)],
                                       out.pooler_output)
             loss = criterion(link_logits,
-                             data.train_target_index[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)].to(
+                             data.y[bs * it: min(data.edge_index.shape[1], bs * it + bs)].to(
                                  device))
             loss.backward(retain_graph=True)
             optimizer.step()
@@ -113,11 +113,11 @@ class GCNJointRepresentation(torch.nn.Module):
                                                                                                        average='macro')
 
     @torch.no_grad()
-    def evaluate(self, data, edge_map, criterion, device: torch.device, bs):
+    def evaluate(self, data, edge_map, criterion, device: torch.device, bs, pivot):
         self.eval()
 
-        tgt_edge_index = data[f'val_target_index']
-        pos_edge_index = data[f'val_edge_index']
+        tgt_edge_index = data.y[:pivot]
+        pos_edge_index = data.edge_index[pivot:]
 
         with torch.no_grad():
             z = self.encode(data)
