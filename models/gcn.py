@@ -89,6 +89,8 @@ class GCNJointRepresentation(torch.nn.Module):
 
             if device == 'cuda':
                 out = out.pooler_output.cpu()
+            else:
+                out = out.pooler_output
 
             edge_attr[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = out.float()
 
@@ -120,6 +122,8 @@ class GCNJointRepresentation(torch.nn.Module):
 
             if device == 'cuda':
                 out = out.pooler_output.cpu()
+            else:
+                out = out.pooler_output
 
             edge_attr[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = out.pooler_output.float()
 
