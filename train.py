@@ -93,10 +93,10 @@ if __name__ == '__main__':
     bs = 10
     if args.model in ['gcn', 'rgcn', 'sage']:
         edge_map_train = TokenizedDataset(input_ids[:pivot], attention_mask[:pivot])
-        edge_map_train = torch.utils.data.DataLoader(edge_map_train, shuffle=False, batch_size=bs)
+        edge_map_train = torch.utils.data.DataLoader(edge_map_train, shuffle=False, batch_size=bs, drop_last=True)
 
         edge_map_val = TokenizedDataset(input_ids[pivot:], attention_mask[pivot:])
-        edge_map_val = torch.utils.data.DataLoader(edge_map_val, shuffle=False, batch_size=bs)
+        edge_map_val = torch.utils.data.DataLoader(edge_map_val, shuffle=False, batch_size=bs, drop_last=True)
 
         cluster_data = ClusterData(graph, num_parts=args.num_partition, recursive=True)
         print('Graph partitioned..')
