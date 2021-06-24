@@ -115,6 +115,9 @@ class GCNJointRepresentation(torch.nn.Module):
                 "attention_mask": attn.long().to(device)
             })
 
+            if device == 'cuda':
+                out = out.cpu()
+
             edge_attr[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = out.pooler_output.float()
 
         z = self.encode(data)
