@@ -88,9 +88,9 @@ class GCNJointRepresentation(torch.nn.Module):
             })
 
             if device == 'cuda':
-                out = out.cpu()
+                out = out.pooler_output.cpu()
 
-            edge_attr[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = out.pooler_output.float()
+            edge_attr[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = out.float()
 
         link_logits = self.decode(z, data.train_edge_index, edge_attr.to(device))
         loss = criterion(link_logits, data.train_target_index.to(device))
@@ -119,7 +119,7 @@ class GCNJointRepresentation(torch.nn.Module):
             })
 
             if device == 'cuda':
-                out = out.cpu()
+                out = out.pooler_output.cpu()
 
             edge_attr[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = out.pooler_output.float()
 
