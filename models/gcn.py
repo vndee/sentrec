@@ -74,18 +74,14 @@ class GCNJointRepresentation(torch.nn.Module):
                                 dim=-1)
         return link_labels.long()
 
-    def learn(self, data, optimizer: torch.optim.Optimizer, scheduler, device: torch.device, edge_map, criterion):
+    def learn(self, data, optimizer: torch.optim.Optimizer, scheduler, device: torch.device, edge_map, criterion, bs):
         self.train()
         optimizer.zero_grad()
 
         z = self.encode(data)
 
-        bs = None
         edge_attr = torch.zeros(data.train_edge_index.shape[1], 768)
-        for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation"):
-            if bs is None:
-                bs = inp.shape[0]
-
+        for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation", total=data.train_edge_index.shape[1] // bs):
             out = self.lm(**{
                 "input_ids": inp.long().to(device),
                 "attention_mask": attn.long().to(device)
@@ -106,16 +102,20 @@ class GCNJointRepresentation(torch.nn.Module):
             data.train_target_index, link_preds, average='macro')
 
     @torch.no_grad()
-    def evaluate(self, data, edge_map, criterion, device: torch.device):
+    def evaluate(self, data, edge_map, criterion, device: torch.device, bs):
         self.eval()
 
         tgt_edge_index = data[f'val_target_index']
         pos_edge_index = data[f'val_edge_index']
 
-        edge_attr = torch.zeros(pos_edge_index.shape[1], edge_map.get_dim())
-        for it in range(pos_edge_index.shape[1]):
-            u, v = pos_edge_index[0][it].item(), pos_edge_index[1][it].item()
-            edge_attr[it] = torch.from_numpy(edge_map.get(u, v)).float()
+        edge_attr = torch.zeros(data.train_edge_index.shape[1], 768)
+        for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation", total=data.train_edge_index.shape[1] // bs):
+            out = self.lm(**{
+                "input_ids": inp.long().to(device),
+                "attention_mask": attn.long().to(device)
+            })
+
+            edge_attr[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = out.pooler_output.float()
 
         z = self.encode(data)
         link_logits = self.decode(z, pos_edge_index, edge_attr.to(device))
