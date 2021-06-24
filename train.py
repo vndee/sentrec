@@ -92,8 +92,11 @@ if __name__ == '__main__':
 
     bs = 10
     if args.model in ['gcn', 'rgcn', 'sage']:
-        edge_map = TokenizedDataset(input_ids, attention_mask)
-        edge_map = torch.utils.data.DataLoader(edge_map, shuffle=False, batch_size=bs)
+        edge_map_train = TokenizedDataset(input_ids[:pivot], attention_mask[:pivot])
+        edge_map_train = torch.utils.data.DataLoader(edge_map_train, shuffle=False, batch_size=bs)
+
+        edge_map_val = TokenizedDataset(input_ids[pivot:], attention_mask[pivot:])
+        edge_map_val = torch.utils.data.DataLoader(edge_map_val, shuffle=False, batch_size=bs)
 
         cluster_data = ClusterData(graph, num_parts=args.num_partition, recursive=True)
         print('Graph partitioned..')
@@ -130,8 +133,8 @@ if __name__ == '__main__':
                 cluster = cluster.to(args.device)
 
                 train_loss, train_acc, train_f1 = net.learn(data=cluster, scheduler=lr_scheduler, optimizer=optim,
-                                                            criterion=criterion, edge_map=edge_map, device=args.device, bs=bs)
-                val_loss, val_acc, val_f1 = net.evaluate(data=cluster, criterion=criterion, edge_map=edge_map,
+                                                            criterion=criterion, edge_map=edge_map_train, device=args.device, bs=bs)
+                val_loss, val_acc, val_f1 = net.evaluate(data=cluster, criterion=criterion, edge_map=edge_map_val,
                                                          device=args.device, bs=bs)
 
                 cnt = cnt + 1
