@@ -104,7 +104,8 @@ class GCNJointRepresentation(torch.nn.Module):
 
             losses = losses + loss.item()
             link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
-            link_truth = data.train_target_index.cpu().detach().numpy()
+            link_truth = data.train_target_index[
+                         bs * it: min(data.train_edge_index.shape[1], bs * it + bs)].cpu().detach().numpy()
 
             preds[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_preds
             truth[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_truth
@@ -138,7 +139,8 @@ class GCNJointRepresentation(torch.nn.Module):
 
                 losses = losses + loss.item()
                 link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
-                link_truth = tgt_edge_index.cpu().detach().numpy()
+                link_truth = data.train_target_index[
+                             bs * it: min(data.train_edge_index.shape[1], bs * it + bs)].cpu().detach().numpy()
 
                 preds[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_preds
                 truth[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_truth
