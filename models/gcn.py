@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 from torch_geometric.nn import RGCNConv, GCNConv, SAGEConv
@@ -46,11 +47,11 @@ class GCNJointRepresentation(torch.nn.Module):
 
     def encode(self, data):
         if self.conv_type == 'rgcn':
-            x = self.conv1(data.x, data.train_edge_index, torch.ones(data.train_edge_index.shape[1])).relu()
-            x = self.conv2(x, data.train_edge_index, torch.ones(data.train_edge_index.shape[1])).relu()
+            x = self.conv1(data.x, data.edge_index, torch.ones(data.edge_index.shape[1])).relu()
+            x = self.conv2(x, data.edge_index, torch.ones(data.edge_index.shape[1])).relu()
         else:
-            x = self.conv1(data.x, data.train_edge_index).relu()
-            x = self.conv2(x, data.train_edge_index).relu()
+            x = self.conv1(data.x, data.edge_index).relu()
+            x = self.conv2(x, data.edge_index).relu()
 
         return x
 
@@ -80,31 +81,33 @@ class GCNJointRepresentation(torch.nn.Module):
 
         z = self.encode(data)
 
-        edge_attr = torch.zeros(data.train_edge_index.shape[1], 768)
-        for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation", total=data.train_edge_index.shape[1] // bs):
+        preds, truth, losses = None, None, 0.
+        for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
+                                    total=data.train_edge_index.shape[1] // bs):
             out = self.lm(**{
                 "input_ids": inp.long().to(device),
                 "attention_mask": attn.long().to(device)
             })
 
-            if device == 'cuda':
-                out = out.pooler_output.cpu()
-            else:
-                out = out.pooler_output
+            link_logits = self.decode(z,
+                                      data.train_edge_index[:, bs * it: min(data.train_edge_index.shape[1], bs * it + bs)],
+                                      out.pooler_output)
+            loss = criterion(link_logits,
+                             data.train_target_index[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)].to(
+                                 device))
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
 
-            edge_attr[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = out.float()
+            losses = losses + loss.item()
+            link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
+            link_truth = data.train_target_index.cpu().detach().numpy()
 
-        link_logits = self.decode(z, data.train_edge_index, edge_attr.to(device))
-        loss = criterion(link_logits, data.train_target_index.to(device))
-        loss.backward()
-        optimizer.step()
-        scheduler.step()
+            preds = np.atleast_1d(link_preds) if preds is None else np.concatenate([preds, link_preds])
+            truth = np.atleast_1d(link_truth) if truth is None else np.concatenate([truth, link_truth])
 
-        link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
-        data.train_target_index = data.train_target_index.cpu().detach().numpy()
-
-        return loss.item(), accuracy_score(data.train_target_index, link_preds), f1_score(
-            data.train_target_index, link_preds, average='macro')
+        return losses / (data.train_edge_index.shape[1] // bs), accuracy_score(truth, preds), f1_score(truth, preds,
+                                                                                                       average='macro')
 
     @torch.no_grad()
     def evaluate(self, data, edge_map, criterion, device: torch.device, bs):
@@ -113,28 +116,27 @@ class GCNJointRepresentation(torch.nn.Module):
         tgt_edge_index = data[f'val_target_index']
         pos_edge_index = data[f'val_edge_index']
 
-        edge_attr = torch.zeros(data.train_edge_index.shape[1], 768)
-        for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation", total=data.train_edge_index.shape[1] // bs):
+        z = self.encode(data)
+
+        preds, truth, losses = None, None, 0.
+        for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
+                                    total=pos_edge_index.shape[1] // bs):
             out = self.lm(**{
                 "input_ids": inp.long().to(device),
                 "attention_mask": attn.long().to(device)
             })
 
-            if device == 'cuda':
-                out = out.pooler_output.cpu()
-            else:
-                out = out.pooler_output
+            link_logits = self.decode(z, pos_edge_index[:, bs * it: min(pos_edge_index.shape[1], bs * it + bs)],
+                                      out.pooler_output)
+            loss = criterion(link_logits,
+                             pos_edge_index[bs * it: min(pos_edge_index.shape[1], bs * it + bs)].to(device))
 
-            edge_attr[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = out.pooler_output.float()
+            losses = losses + loss.item()
+            link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
+            link_truth = tgt_edge_index.cpu().detach().numpy()
 
-        z = self.encode(data)
-        link_logits = self.decode(z, pos_edge_index, edge_attr.to(device))
-        loss = criterion(link_logits, tgt_edge_index.to(device))
+            preds = np.atleast_1d(link_preds) if preds is None else np.concatenate([preds, link_preds])
+            truth = np.atleast_1d(link_truth) if truth is None else np.concatenate([truth, link_truth])
 
-        link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
-        tgt_edge_index = tgt_edge_index.cpu().detach().numpy()
-
-        acc = accuracy_score(tgt_edge_index, link_preds)
-        f1 = f1_score(tgt_edge_index, link_preds, average='macro')
-
-        return loss, acc, f1
+        return losses / (data.train_edge_index.shape[1] // bs), accuracy_score(truth, preds), f1_score(truth, preds,
+                                                                                                       average='macro')
