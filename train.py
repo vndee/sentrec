@@ -11,7 +11,7 @@ from loader import AmazonFineFoodsReviews, chunks, TokenizedDataset
 from transformers import AdamW, get_scheduler, AutoTokenizer
 from torch.utils.tensorboard import SummaryWriter
 from models import GCNJointRepresentation, SEALJointRepresentation
-from torch_geometric.data import DataLoader
+from torch_geometric.data import DataLoader, ClusterData
 from utils import SEALDataset, split_graph, to_undirected, EdgeHashMap
 
 
@@ -95,8 +95,8 @@ if __name__ == '__main__':
         edge_map = TokenizedDataset(input_ids, attention_mask)
         edge_map = torch.utils.data.DataLoader(edge_map, shuffle=False, batch_size=bs)
 
-        # cluster_data = ClusterData(graph, num_parts=args.num_partition, recursive=True)
-        # print('Graph partitioned..')
+        cluster_data = ClusterData(graph, num_parts=args.num_partition, recursive=True)
+        print('Graph partitioned..')
 
         net = GCNJointRepresentation(conv_type=args.model)
         if args.pretrained is not None:
