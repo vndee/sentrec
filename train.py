@@ -90,7 +90,7 @@ if __name__ == '__main__':
     os.makedirs(os.path.join(args.save_dir, 'logs'), exist_ok=True)
     writer = SummaryWriter(os.path.join(args.save_dir, 'logs'))
 
-    bs = 8
+    bs = 16
     if args.model in ['gcn', 'rgcn', 'sage']:
         edge_map = TokenizedDataset(input_ids, attention_mask)
         edge_map = torch.utils.data.DataLoader(edge_map, shuffle=False, batch_size=bs)
