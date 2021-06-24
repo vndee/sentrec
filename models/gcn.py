@@ -1,4 +1,6 @@
 import torch
+from tqdm import tqdm
+from torch.utils.data import Dataset, DataLoader
 from torch_geometric.nn import RGCNConv, GCNConv, SAGEConv
 from transformers import AutoModel
 from sklearn.metrics import f1_score, accuracy_score
@@ -23,6 +25,8 @@ class GCNJointRepresentation(torch.nn.Module):
 
         # LM
         self.lm = AutoModel.from_pretrained(language_model)
+        for param in self.lm.parameters():
+            param.required_grad = True
 
         # Join representation
         self.linear1 = torch.nn.Linear(hidden_dim + 64, 128)
@@ -76,10 +80,18 @@ class GCNJointRepresentation(torch.nn.Module):
 
         z = self.encode(data)
 
-        edge_attr = torch.zeros(data.train_edge_index.shape[1], edge_map.get_dim())
-        for it in range(data.train_edge_index.shape[1]):
-            u, v = data.train_edge_index[0][it].item(), data.train_edge_index[1][it].item()
-            edge_attr[it] = torch.from_numpy(edge_map.get(u, v)).float()
+        bs = None
+        edge_attr = torch.zeros(data.train_edge_index.shape[1], 768)
+        for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation"):
+            if bs is None:
+                bs = inp.shape[0]
+
+            out = self.lm(**{
+                "input_ids": inp.long().to(device),
+                "attention_mask": attn.long().to(device)
+            })
+
+            edge_attr[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = out.pooler_output.float()
 
         link_logits = self.decode(z, data.train_edge_index, edge_attr.to(device))
         loss = criterion(link_logits, data.train_target_index.to(device))

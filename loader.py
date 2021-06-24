@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List
+from torch.utils.data import Dataset
 from torch_geometric.data import Data
 from datetime import timedelta
 from transformers import AutoTokenizer, AutoModel
@@ -20,6 +21,7 @@ class AmazonFineFoodsReviews(object):
         super(AmazonFineFoodsReviews, self).__init__()
         self.df = pd.read_csv(f"{database_path}.csv")
         self.tdf = pd.read_csv(f"{test_path}.csv")
+        self.pivot = len(self.df)
         self.df["test"] = 0
         self.tdf["test"] = 1
         self.df = pd.concat([self.df, self.tdf])
@@ -60,7 +62,21 @@ class AmazonFineFoodsReviews(object):
 
         if text_feature is True:
             return Data(x=torch.ones(1 + np.max(product_ids), 1), edge_index=edge_index,
-                        y=torch.tensor(scores, dtype=torch.long) - 1), self.df.Text.tolist()
+                        y=torch.tensor(scores, dtype=torch.long) - 1), self.df.Text.tolist(), self.pivot
 
         return Data(x=torch.ones(1 + np.max(product_ids), 1), edge_index=edge_index,
-                    y=torch.tensor(scores, dtype=torch.long) - 1)
+                    y=torch.tensor(scores, dtype=torch.long) - 1), self.pivot
+
+
+class TokenizedDataset(Dataset):
+    def __init__(self, input_ids, attention_mask):
+        super(TokenizedDataset, self).__init__()
+        self.input_ids = input_ids
+        self.attention_mask = attention_mask
+
+    def __getitem__(self, it):
+        return self.input_ids[it], self.attention_mask[it]
+
+    def __len__(self):
+        assert self.input_ids.shape == self.attention_mask.shape, ValueError("Dimension mismatch")
+        return self.input_ids.shape[0]

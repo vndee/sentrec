@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from datetime import timedelta
-from loader import AmazonFineFoodsReviews, chunks
+from loader import AmazonFineFoodsReviews, chunks, TokenizedDataset
 from transformers import AdamW, get_scheduler, AutoTokenizer
 from torch.utils.tensorboard import SummaryWriter
 from models import GCNJointRepresentation, SEALJointRepresentation
@@ -47,66 +47,59 @@ if __name__ == '__main__':
     argument.add_argument('-e', '--epoch', type=int, default=1000, help='The number of epoch')
     argument.add_argument('-t', '--text_feature', type=bool, default=True, help='Using text feature or not')
     argument.add_argument('-s', '--multi_task', type=bool, default=False, help='Using multi-task training')
-    argument.add_argument('-m', '--max_length', type=int, default=512, help='Reviews max length')
+    argument.add_argument('-m', '--max_length', type=int, default=256, help='Reviews max length')
     argument.add_argument('-n', '--num_partition', type=int, default=1, help='Number of graph partition')
     argument.add_argument('-k', '--num_hops', type=int, default=3, help='Number of hops')
     argument.add_argument('-c', '--model', type=str, default='sage', help='Model')
     argument.add_argument('-b', '--batch_size', type=int, default=32, help='Batch size')
     argument.add_argument('-a', '--random_seed', type=int, default=42, help='Seed number')
     argument.add_argument('-g', '--save_dir', type=str, default='data/weights/', help='Path to save dir')
-    argument.add_argument('-p', '--pretrained', type=str, default='data/weights/best.pt',
+    argument.add_argument('-p', '--pretrained', type=str, default=None,
                           help='Path to pretrained model')
     args = argument.parse_args()
     set_reproducibility_state(args.random_seed)
 
     print(args)
     os.makedirs(args.save_dir, exist_ok=True)
-    graph, text = AmazonFineFoodsReviews(database_path=args.input, test_path=args.test).build_graph(
+    graph, text, pivot = AmazonFineFoodsReviews(database_path=args.input, test_path=args.test).build_graph(
         text_feature=args.text_feature)
 
-    if args.text_feature:
-        t0, input_ids, attention_mask = time.time(), None, None
-        tokenizer = AutoTokenizer.from_pretrained(args.language_model_shortcut)
-        for it, te in enumerate(chunks(text, args.batch_size) * 8):
-            tokenized = tokenizer(te, padding="max_length", truncation=True, max_length=args.max_length,
-                                  return_tensors="np")
-            inp, attn = tokenized["input_ids"], tokenized["attention_mask"]
+    t0, input_ids, attention_mask = time.time(), torch.zeros((len(text), args.max_length)), torch.zeros(
+        (len(text), args.max_length))
+    tokenizer = AutoTokenizer.from_pretrained(args.language_model_shortcut)
+    for it, te in enumerate(chunks(text, args.batch_size)):
+        tokenized = tokenizer(te, padding="max_length", truncation=True, max_length=args.max_length,
+                              return_tensors="pt")
+        inp, attn = tokenized["input_ids"], tokenized["attention_mask"]
+        input_ids[it * args.batch_size: min((it * args.batch_size) + args.batch_size, len(text))] = inp
+        attention_mask[it * args.batch_size: min((it * args.batch_size) + args.batch_size, len(text))] = attn
 
-            input_ids = np.atleast_1d(inp) if input_ids is None else np.concatenate([input_ids, inp])
-            attention_mask = np.atleast_1d(attn) if attention_mask is None else np.concatenate([attention_mask, attn])
-
+        if it % 100 == 0 and it > 0:
             els = time.time() - t0
             est = (els / (it + 1)) * ((len(text) / args.batch_size) - it - 1)
-            print(f"Tokenized elapsed {timedelta(seconds=els)} - estimate {timedelta(seconds=est)}")
+            print(
+                f"Tokenized elapsed {it + 1}/{len(text) // args.batch_size} - {timedelta(seconds=els)} - estimate {timedelta(seconds=est)}")
 
-        print(input_ids.shape)
-        print(attention_mask.shape)
-
-    with open(f"{args.input}.vec", "rb") as stream:
-        edge_attr = pickle.loads(stream.read())
-
-    with open(f"{args.test}.vec", "rb") as stream:
-        test_edge_attr = pickle.loads(stream.read())
-
-    pivot = edge_attr.shape[0]
-    edge_attr = np.concatenate([edge_attr, test_edge_attr])
-
-    print(f"Graph: {graph.edge_index.shape}")
-    print(f"Edge: {edge_attr.shape}")
+    print(input_ids.shape)
+    print(attention_mask.shape)
+    with open("data/mini/input_ids.pkl", "wb") as stream:
+        pickle.dump(input_ids, stream)
+    with open("data/mini/attention_mask.pkl", "wb") as stream:
+        pickle.dump(attention_mask, stream)
 
     os.makedirs(os.path.join(args.save_dir, 'logs'), exist_ok=True)
     writer = SummaryWriter(os.path.join(args.save_dir, 'logs'))
 
     if args.model in ['gcn', 'rgcn', 'sage']:
-        edge_map = EdgeHashMap(graph.edge_index, edge_attr)
-        del edge_attr
+        edge_map = TokenizedDataset(input_ids, attention_mask)
+        edge_map = torch.utils.data.DataLoader(edge_map, shuffle=False, batch_size=4)
 
         cluster_data = ClusterData(graph, num_parts=args.num_partition, recursive=True)
         print('Graph partitioned..')
 
         net = GCNJointRepresentation(conv_type=args.model)
         if args.pretrained is not None:
-            net.load_state_dict(torch.load(args.pretrained))
+            net.load_state_dict(torch.load(args.pretrained), strict=False)
             print(f"Loaded pretrained weights from {args.pretrained}")
 
         net = net.to(args.device)
@@ -129,7 +122,8 @@ if __name__ == '__main__':
 
             total_val_loss, total_test_loss = 0., 0.
 
-            for cluster in tqdm(cluster_data, f"Training {1 + epoch}/{args.epoch}"):
+            for cluster in cluster_data:
+                print(f"Training {1 + epoch}/{args.epoch}..")
                 cluster = split_graph(cluster, pivot=pivot)
                 cluster = to_undirected(cluster)
                 cluster = cluster.to(args.device)
