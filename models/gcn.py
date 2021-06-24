@@ -81,7 +81,8 @@ class GCNJointRepresentation(torch.nn.Module):
 
         z = self.encode(data)
 
-        preds, truth, losses = None, None, 0.
+        preds, truth, losses = np.zeros((data.train_edge_index.shape[1], 1)), np.zeros(
+            (data.train_edge_index.shape[1], 1)), None, 0.
         for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
                                     total=data.train_edge_index.shape[1] // bs):
             optimizer.zero_grad()
@@ -91,7 +92,8 @@ class GCNJointRepresentation(torch.nn.Module):
             })
 
             link_logits = self.decode(z,
-                                      data.train_edge_index[:, bs * it: min(data.train_edge_index.shape[1], bs * it + bs)],
+                                      data.train_edge_index[:,
+                                      bs * it: min(data.train_edge_index.shape[1], bs * it + bs)],
                                       out.pooler_output)
             loss = criterion(link_logits,
                              data.train_target_index[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)].to(
@@ -104,8 +106,8 @@ class GCNJointRepresentation(torch.nn.Module):
             link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
             link_truth = data.train_target_index.cpu().detach().numpy()
 
-            preds = np.atleast_1d(link_preds) if preds is None else np.concatenate([preds, link_preds])
-            truth = np.atleast_1d(link_truth) if truth is None else np.concatenate([truth, link_truth])
+            preds[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_preds
+            truth[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_truth
 
         return losses / (data.train_edge_index.shape[1] // bs), accuracy_score(truth, preds), f1_score(truth, preds,
                                                                                                        average='macro')
@@ -120,7 +122,8 @@ class GCNJointRepresentation(torch.nn.Module):
         with torch.no_grad():
             z = self.encode(data)
 
-            preds, truth, losses = None, None, 0.
+            preds, truth, losses = np.zeros((data.train_edge_index.shape[1], 1)), np.zeros(
+                (data.train_edge_index.shape[1], 1)), None, 0.
             for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
                                         total=pos_edge_index.shape[1] // bs):
                 out = self.lm(**{
@@ -137,8 +140,8 @@ class GCNJointRepresentation(torch.nn.Module):
                 link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
                 link_truth = tgt_edge_index.cpu().detach().numpy()
 
-                preds = np.atleast_1d(link_preds) if preds is None else np.concatenate([preds, link_preds])
-                truth = np.atleast_1d(link_truth) if truth is None else np.concatenate([truth, link_truth])
+                preds[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_preds
+                truth[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_truth
 
             return losses / (data.train_edge_index.shape[1] // bs), accuracy_score(truth, preds), f1_score(truth, preds,
                                                                                                            average='macro')
