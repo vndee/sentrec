@@ -1,0 +1,1 @@
+python train.py -i data/train -y data/test -r 3e-5 -d cuda -e 10
