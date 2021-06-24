@@ -109,8 +109,7 @@ class GCNJointRepresentation(torch.nn.Module):
             preds[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_preds
             truth[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_truth
 
-        return losses / (data.train_edge_index.shape[1] // bs), accuracy_score(truth, preds), f1_score(truth, preds,
-                                                                                                       average='macro')
+        return losses / len(edge_map), accuracy_score(truth, preds), f1_score(truth, preds, average='macro')
 
     @torch.no_grad()
     def evaluate(self, data, edge_map, criterion, device: torch.device, bs, pivot):
@@ -122,7 +121,7 @@ class GCNJointRepresentation(torch.nn.Module):
         with torch.no_grad():
             z = self.encode(data)
 
-            preds, truth, losses = np.zeros((data.train_edge_index.shape[1])), np.zeros(
+            preds, truth, losses = np.zeros((pos_edge_index.shape[1])), np.zeros(
                 (data.train_edge_index.shape[1])), 0.
             for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
                                         total=len(edge_map)):
@@ -139,10 +138,9 @@ class GCNJointRepresentation(torch.nn.Module):
                 losses = losses + loss.item()
                 link_preds = torch.argmax(link_logits, dim=-1).cpu().detach().numpy()
                 link_truth = data.train_target_index[
-                             bs * it: min(data.train_edge_index.shape[1], bs * it + bs)].cpu().detach().numpy()
+                             bs * it: min(pos_edge_index.shape[1], bs * it + bs)].cpu().detach().numpy()
 
-                preds[bs * it: min(data.train_edge_index.shape[1], bs * it + bs)] = link_preds
+                preds[bs * it: min(pos_edge_index.shape[1], bs * it + bs)] = link_preds
                 truth[bs * it: min(tgt_edge_index.shape[1], bs * it + bs)] = link_truth
 
-            return losses / (data.train_edge_index.shape[1] // bs), accuracy_score(truth, preds), f1_score(truth, preds,
-                                                                                                           average='macro')
+            return losses / len(edge_map), accuracy_score(truth, preds), f1_score(truth, preds, average='macro')
