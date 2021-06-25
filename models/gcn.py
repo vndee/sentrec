@@ -115,13 +115,13 @@ class GCNJointRepresentation(torch.nn.Module):
     def evaluate(self, data, edge_map, criterion, device: torch.device, bs, pivot):
         self.eval()
 
-        tgt_edge_index = data.y[:pivot]
+        tgt_edge_index = data.y[pivot:]
         pos_edge_index = data.edge_index[:, pivot:]
 
         with torch.no_grad():
             z = self.encode(data)
 
-            preds, truth, losses = np.zeros((pos_edge_index.shape[1])), np.zeros((tgt_edge_index.shape[0])), 0.
+            preds, truth, losses = np.zeros((tgt_edge_index.shape[0])), np.zeros((tgt_edge_index.shape[0])), 0.
             for it, (inp, attn) in tqdm(enumerate(edge_map), desc="Textual Representation",
                                         total=len(edge_map)):
                 out = self.lm(**{
