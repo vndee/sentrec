@@ -54,7 +54,7 @@ if __name__ == '__main__':
     argument.add_argument('-b', '--batch_size', type=int, default=32, help='Batch size')
     argument.add_argument('-a', '--random_seed', type=int, default=42, help='Seed number')
     argument.add_argument('-g', '--save_dir', type=str, default='data/weights/', help='Path to save dir')
-    argument.add_argument('-p', '--pretrained', type=str, default=None,
+    argument.add_argument('-p', '--pretrained', type=str, default='data/weights/best.pt',
                           help='Path to pretrained model')
     args = argument.parse_args()
     set_reproducibility_state(args.random_seed)
@@ -131,9 +131,9 @@ if __name__ == '__main__':
                 cluster = split_graph(cluster, pivot=pivot)
                 cluster = to_undirected(cluster)
                 cluster = cluster.to(args.device)
-
                 val_loss, val_acc, val_f1 = net.evaluate(data=cluster, criterion=criterion, edge_map=edge_map_val,
                                                          device=args.device, bs=bs, pivot=pivot)
+                print(f'Eval {val_loss} - {val_acc} - {val_f1}')
                 train_loss, train_acc, train_f1 = net.learn(data=cluster, scheduler=lr_scheduler, optimizer=optim,
                                                             criterion=criterion, edge_map=edge_map_train, device=args.device, bs=bs)
                 val_loss, val_acc, val_f1 = net.evaluate(data=cluster, criterion=criterion, edge_map=edge_map_val,
