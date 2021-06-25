@@ -95,8 +95,7 @@ class GCNJointRepresentation(torch.nn.Module):
                                       bs * it: min(data.edge_index.shape[1], bs * it + bs)],
                                       out.pooler_output)
             loss = criterion(link_logits,
-                             data.y[bs * it: min(data.edge_index.shape[1], bs * it + bs)].to(
-                                 device))
+                             data.train_target_index[bs * it: min(data.edge_index.shape[1], bs * it + bs)].to(device))
             loss.backward(retain_graph=True)
             optimizer.step()
             scheduler.step()
@@ -115,8 +114,8 @@ class GCNJointRepresentation(torch.nn.Module):
     def evaluate(self, data, edge_map, criterion, device: torch.device, bs, pivot):
         self.eval()
 
-        tgt_edge_index = data.y[pivot:]
-        pos_edge_index = data.edge_index[:, pivot:]
+        tgt_edge_index = data.val_target_index
+        pos_edge_index = data.val_target_index
 
         with torch.no_grad():
             z = self.encode(data)

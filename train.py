@@ -54,7 +54,7 @@ if __name__ == '__main__':
     argument.add_argument('-b', '--batch_size', type=int, default=32, help='Batch size')
     argument.add_argument('-a', '--random_seed', type=int, default=42, help='Seed number')
     argument.add_argument('-g', '--save_dir', type=str, default='data/weights/', help='Path to save dir')
-    argument.add_argument('-p', '--pretrained', type=str, default='data/weights/best.pt',
+    argument.add_argument('-p', '--pretrained', type=str, default=None,
                           help='Path to pretrained model')
     args = argument.parse_args()
     set_reproducibility_state(args.random_seed)
