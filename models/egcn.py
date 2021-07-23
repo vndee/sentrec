@@ -34,10 +34,11 @@ class GCNJointRepresentation(torch.nn.Module):
             x = self.conv1(data.x, data.edge_index).relu()
             x = self.conv2(x, data.edge_index).relu()
 
-        return self.linear(x)
+        return x
 
     def decode(self, z, edge_index):
         node_representation = (z[edge_index[0]] * z[edge_index[1]])
+        node_representation = self.linear(node_representation)
         return self.softmax(node_representation)
 
     @staticmethod
