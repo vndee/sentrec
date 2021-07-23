@@ -61,8 +61,8 @@ def to_undirected_edge_index(edge_index, target_index, edge_attr=None, num_nodes
 def to_undirected(data):
     data.edge_index, data.y, data.edge_attr = to_undirected_edge_index(edge_index=data.edge_index, target_index=data.y)
 
-    data.train_edge_index, data.train_target_index, data.train_edge_attr = to_undirected_edge_index(
-        edge_index=data.train_edge_index, target_index=data.train_target_index, edge_attr=data.train_edge_attr)
-    data.val_edge_index, data.val_target_index, data.val_edge_attr = to_undirected_edge_index(
-        edge_index=data.val_edge_index, target_index=data.val_target_index, edge_attr=data.val_edge_attr)
+    # data.train_edge_index, data.train_target_index, data.train_edge_attr = to_undirected_edge_index(
+    #     edge_index=data.train_edge_index, target_index=data.train_target_index, edge_attr=data.train_edge_attr)
+    # data.val_edge_index, data.val_target_index, data.val_edge_attr = to_undirected_edge_index(
+    #     edge_index=data.val_edge_index, target_index=data.val_target_index, edge_attr=data.val_edge_attr)
     return data

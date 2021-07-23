@@ -38,14 +38,14 @@ def batch_evaluate(net, loader, device):
 
 if __name__ == '__main__':
     argument = argparse.ArgumentParser(description='Training job for Sentiment Graph for Recommendation')
-    argument.add_argument('-i', '--input', type=str, default='data/mini/train', help='Path to training data')
+    argument.add_argument('-i', '--input', type=str, default='data/Reviews', help='Path to training data')
     argument.add_argument('-y', '--test', type=str, default='data/mini/test', help='Path to testing file')
     argument.add_argument('-l', '--language_model_shortcut', type=str, default='bert-base-cased',
                           help='Pre-trained language models shortcut')
-    argument.add_argument('-r', '--learning_rate', type=float, default=1e-4, help='Model learning rate')
+    argument.add_argument('-r', '--learning_rate', type=float, default=1e-2, help='Model learning rate')
     argument.add_argument('-d', '--device', type=str, default='cpu', help='Training device')
     argument.add_argument('-e', '--epoch', type=int, default=1000, help='The number of epoch')
-    argument.add_argument('-t', '--text_feature', type=bool, default=True, help='Using text feature or not')
+    argument.add_argument('-t', '--text_feature', type=bool, default=False, help='Using text feature or not')
     argument.add_argument('-s', '--multi_task', type=bool, default=False, help='Using multi-task training')
     argument.add_argument('-m', '--max_length', type=int, default=256, help='Reviews max length')
     argument.add_argument('-n', '--num_partition', type=int, default=1, help='Number of graph partition')
@@ -61,46 +61,12 @@ if __name__ == '__main__':
 
     print(args)
     os.makedirs(args.save_dir, exist_ok=True)
-    graph, text, pivot = AmazonFineFoodsReviews(database_path=args.input, test_path=args.test).build_graph(
-        text_feature=args.text_feature)
-
-    t0, input_ids, attention_mask = time.time(), torch.zeros((len(text), args.max_length)), torch.zeros(
-        (len(text), args.max_length))
-    tokenizer = AutoTokenizer.from_pretrained(args.language_model_shortcut)
-    for it, te in enumerate(chunks(text, args.batch_size)):
-        tokenized = tokenizer(te, padding="max_length", truncation=True, max_length=args.max_length,
-                              return_tensors="pt")
-        inp, attn = tokenized["input_ids"], tokenized["attention_mask"]
-        input_ids[it * args.batch_size: min((it * args.batch_size) + args.batch_size, len(text))] = inp
-        attention_mask[it * args.batch_size: min((it * args.batch_size) + args.batch_size, len(text))] = attn
-
-        if it % 100 == 0 and it > 0:
-            els = time.time() - t0
-            est = (els / (it + 1)) * ((len(text) / args.batch_size) - it - 1)
-            print(
-                f"Tokenized elapsed {it + 1}/{len(text) // args.batch_size} - {timedelta(seconds=els)} - estimate {timedelta(seconds=est)}")
-
-    print(input_ids.shape)
-    print(attention_mask.shape)
-    with open("data/mini/input_ids.pkl", "wb") as stream:
-        pickle.dump(input_ids, stream)
-    with open("data/mini/attention_mask.pkl", "wb") as stream:
-        pickle.dump(attention_mask, stream)
+    graph = AmazonFineFoodsReviews(database_path=args.input).build_graph()
 
     os.makedirs(os.path.join(args.save_dir, 'logs'), exist_ok=True)
     writer = SummaryWriter(os.path.join(args.save_dir, 'logs'))
 
-    bs = 10
     if args.model in ['gcn', 'rgcn', 'sage']:
-        edge_map_train = TokenizedDataset(input_ids[:pivot], attention_mask[:pivot])
-        edge_map_train = torch.utils.data.DataLoader(edge_map_train, shuffle=False, batch_size=bs, drop_last=True)
-
-        edge_map_val = TokenizedDataset(input_ids[pivot:], attention_mask[pivot:])
-        edge_map_val = torch.utils.data.DataLoader(edge_map_val, shuffle=False, batch_size=bs, drop_last=True)
-
-        cluster_data = ClusterData(graph, num_parts=args.num_partition, recursive=True)
-        print('Graph partitioned..')
-
         net = GCNJointRepresentation(conv_type=args.model)
         if args.pretrained is not None:
             net.load_state_dict(torch.load(args.pretrained), strict=False)
@@ -109,108 +75,34 @@ if __name__ == '__main__':
         net = net.to(args.device)
 
         criterion = torch.nn.CrossEntropyLoss()
-        optim = AdamW(net.parameters(), lr=args.learning_rate)
-
-        lr_scheduler = get_scheduler(
-            "linear",
-            optimizer=optim,
-            num_warmup_steps=0,
-            num_training_steps=args.epoch
-        )
+        optim = torch.optim.Adam(net.parameters(), lr=args.learning_rate)
 
         best_perf, t0 = 0., time.time()
         for epoch in range(args.epoch):
-            total_test_acc, total_test_f1 = 0., 0.
-            cnt, total_train_loss, total_val_perf, total_temp_test_perf = 0, 0., 0., 0.
-            total_train_acc, total_train_f1, total_val_acc, total_val_f1 = 0., 0., 0., 0.
+            print(f"Training {1 + epoch}/{args.epoch}..")
+            graph = to_undirected(graph)
+            graph = graph.to(args.device)
+            train_loss, train_acc, train_f1 = net.learn(data=graph, optimizer=optim,
+                                                        criterion=criterion, device=args.device)
 
-            total_val_loss, total_test_loss = 0., 0.
+            print(f'Epoch: {epoch + 1:04d}/{args.epoch:04d}, train_loss: {train_loss:.5f}, '
+                  f'train_acc: {train_acc:.2f}, train_f1: {train_f1:.2f}')
 
-            for cluster in cluster_data:
-                print(f"Training {1 + epoch}/{args.epoch}..")
-                cluster = split_graph(cluster, pivot=pivot)
-                cluster = to_undirected(cluster)
-                cluster = cluster.to(args.device)
-                # val_loss, val_acc, val_f1 = net.evaluate(data=cluster, criterion=criterion, edge_map=edge_map_val,
-                #                                          device=args.device, bs=bs, pivot=pivot)
-                # print(f'Eval {val_loss} - {val_acc} - {val_f1}')
-                train_loss, train_acc, train_f1 = net.learn(data=cluster, scheduler=lr_scheduler, optimizer=optim,
-                                                            criterion=criterion, edge_map=edge_map_train, device=args.device, bs=bs)
-                val_loss, val_acc, val_f1 = net.evaluate(data=cluster, criterion=criterion, edge_map=edge_map_val,
-                                                         device=args.device, bs=bs, pivot=pivot)
+            if train_acc > best_perf:
+                with torch.no_grad():
+                    best_perf = train_acc
+                    torch.save(net.state_dict(), os.path.join(args.save_dir, 'best.pt'))
+                    net.eval()
+                    z = net.encode(graph)
+                    u, v = z[graph.train_edge_index[0]].cpu(), z[graph.train_edge_index[1]].cpu()
+                    torch.save(u, os.path.join(args.save_dir, "u.pt"))
+                    torch.save(v, os.path.join(args.save_dir, "v.pt"))
+                    print("Saved best model..")
 
-                cnt = cnt + 1
-
-                total_train_loss = total_train_loss + train_loss
-                total_train_acc = total_train_acc + train_acc
-                total_train_f1 = total_train_f1 + train_f1
-
-                total_val_loss = total_val_loss + val_loss
-                total_val_acc = total_val_acc + val_acc
-                total_val_f1 = total_val_f1 + val_f1
-
-            avg_train_loss = total_train_loss / cnt
-            avg_train_acc = total_train_acc / cnt
-            avg_train_f1 = total_train_f1 / cnt
-
-            avg_val_loss = total_val_loss / cnt
-            avg_val_acc = total_val_acc / cnt
-            avg_val_f1 = total_val_f1 / cnt
-
-            print(f'Epoch: {epoch + 1:04d}/{args.epoch:04d}, train_loss: {avg_train_loss:.5f}, '
-                  f'train_acc: {avg_train_acc:.2f}, train_f1: {avg_train_f1:.2f}, '
-                  f'val_loss: {avg_val_loss:.5f}, val_acc: {avg_val_acc:.2f}, val_f1: {avg_val_f1:.2f}')
-
-            if avg_train_acc > best_perf:
-                best_perf = avg_train_acc
-                torch.save(net.state_dict(), os.path.join(args.save_dir, 'best.pt'))
-
-            writer.add_scalar('train_acc', avg_train_acc, epoch)
-            writer.add_scalar('train_loss', avg_train_loss, epoch)
-            writer.add_scalar('train_f1', avg_train_f1, epoch)
-            writer.add_scalar('val_acc', avg_val_acc, epoch)
-            writer.add_scalar('val_loss', avg_val_loss, epoch)
-            writer.add_scalar('val_f1', avg_val_f1, epoch)
-            writer.add_scalar('learning_rate', lr_scheduler.get_last_lr()[0], epoch)
+            writer.add_scalar('train_acc', train_acc, epoch)
+            writer.add_scalar('train_loss', train_loss, epoch)
+            writer.add_scalar('train_f1', train_f1, epoch)
 
             els = time.time() - t0
             est = (els / (1 + epoch)) * (args.epoch - epoch - 1)
             print(f"Time elapsed: {timedelta(seconds=els)} - Time estimate: {timedelta(seconds=est)}")
-
-    elif args.model == 'seal':
-        graph.edge_attr = edge_attr[:1000]
-        split_graph(graph)
-        graph = to_undirected(graph)
-        seal = SEALDataset(graph, args.num_hops)
-        train_loader, val_loader = DataLoader(seal.train, batch_size=args.batch_size, shuffle=True), DataLoader(
-            seal.val, batch_size=args.batch_size, shuffle=True)
-
-        net = SEALJointRepresentation(seal).to(args.device)
-        criterion = torch.nn.CrossEntropyLoss()
-        optim = torch.optim.Adam(params=net.parameters(), lr=args.learning_rate)
-
-        for epoch in range(args.epoch):
-            # train
-            total_test_acc, total_test_f1 = 0., 0.
-            cnt, total_train_loss, total_val_perf, total_temp_test_perf = 0, 0., 0., 0.
-            total_train_acc, total_train_f1, total_val_acc, total_val_f1 = 0., 0., 0., 0.
-
-            for train_data in tqdm(train_loader, desc=f'Training {1 + epoch}/{args.epoch}'):
-                loss, f1, acc = net.learn(data=train_data, optimizer=optim, criterion=criterion,
-                                          device=args.device)
-                cnt = cnt + 1
-                total_train_loss = total_train_loss + loss
-                total_train_acc = total_train_acc + acc
-                total_train_f1 = total_train_f1 + f1
-
-            avg_train_loss = total_train_loss / cnt
-            avg_train_acc = total_train_acc / cnt
-            avg_train_f1 = total_train_f1 / cnt
-
-            avg_val_f1, avg_val_acc = batch_evaluate(net, val_loader, args.device)
-
-            print(f'Epoch: {epoch + 1:04d}/{args.epoch:04d}, train_loss: {avg_train_loss:.5f}, '
-                  f'train_acc: {avg_train_acc:.2f}, train_f1: {avg_train_f1:.2f}, '
-                  f'val_acc: {avg_val_acc:.2f}, val_f1: {avg_val_f1:.2f}, ')
-
-    writer.close()
