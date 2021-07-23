@@ -55,14 +55,14 @@ class GCNJointRepresentation(torch.nn.Module):
         z = self.encode(data)
         link_logits = self.decode(z, data.train_edge_index)
         link_labels = data.train_y
-
-        if device == "cuda":
-            link_logits = link_logits.detach().cpu().numpy()
-            link_labels = link_labels.detach().cpu().numpy()
-
         loss = criterion(link_logits, link_labels)
         loss.backward()
         optimizer.step()
 
         links = torch.argmax(link_logits, dim=-1)
+
+        if device == "cuda":
+            links = links.detach().cpu().numpy()
+            link_labels = link_labels.detach().cpu().numpy()
+
         return loss.item(), accuracy_score(link_labels, links), f1_score(link_labels, links, average="macro")
