@@ -42,7 +42,7 @@ if __name__ == '__main__':
     argument.add_argument('-y', '--test', type=str, default='data/mini/test', help='Path to testing file')
     argument.add_argument('-l', '--language_model_shortcut', type=str, default='bert-base-cased',
                           help='Pre-trained language models shortcut')
-    argument.add_argument('-r', '--learning_rate', type=float, default=1e-4, help='Model learning rate')
+    argument.add_argument('-r', '--learning_rate', type=float, default=1e-5, help='Model learning rate')
     argument.add_argument('-d', '--device', type=str, default='cuda', help='Training device')
     argument.add_argument('-e', '--epoch', type=int, default=10000, help='The number of epoch')
     argument.add_argument('-t', '--text_feature', type=bool, default=False, help='Using text feature or not')
