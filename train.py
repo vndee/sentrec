@@ -50,7 +50,7 @@ if __name__ == '__main__':
     argument.add_argument('-m', '--max_length', type=int, default=256, help='Reviews max length')
     argument.add_argument('-n', '--num_partition', type=int, default=1, help='Number of graph partition')
     argument.add_argument('-k', '--num_hops', type=int, default=3, help='Number of hops')
-    argument.add_argument('-c', '--model', type=str, default='sage', help='Model')
+    argument.add_argument('-c', '--model', type=str, default='gcn', help='Model')
     argument.add_argument('-b', '--batch_size', type=int, default=32, help='Batch size')
     argument.add_argument('-a', '--random_seed', type=int, default=42, help='Seed number')
     argument.add_argument('-g', '--save_dir', type=str, default='data/weights/', help='Path to save dir')
