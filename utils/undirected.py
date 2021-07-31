@@ -37,29 +37,29 @@ def is_undirected(edge_index, edge_attr=None, num_nodes=None):
         return index_symmetric and attr_symmetric
 
 
-def to_undirected_edge_index(edge_index):
-    # num_nodes = maybe_num_nodes(edge_index, num_nodes)
+def to_undirected_edge_index(edge_index, target_index, edge_attr=None, num_nodes=None):
+    num_nodes = maybe_num_nodes(edge_index, num_nodes)
 
     row, col = edge_index
     row, col = torch.cat([row, col], dim=0), torch.cat([col, row], dim=0)
 
-    # if target_index is not None:
-    # target_index = torch.cat([target_index, target_index], dim=0)
-    # else:
-    #     tgt = None
+    if target_index is not None:
+        tgt = torch.cat([target_index, target_index], dim=0)
+    else:
+        tgt = None
 
     edge_index = torch.stack([row, col], dim=0)
-    # if edge_attr is None:
-    #     # edge_index, target_index = coalesce(edge_index, tgt, num_nodes, num_nodes)
-    #     return edge_index, target_index, None
+    if edge_attr is None:
+        edge_index, target_index = coalesce(edge_index, tgt, num_nodes, num_nodes)
+        return edge_index, target_index, None
 
-    # edge_attr = torch.cat([edge_attr, edge_attr], dim=0)
-    # edge_index, target_index, edge_attr = coalesce(edge_index, tgt, num_nodes, num_nodes, edge_attr=edge_attr)
-    return edge_index
+    edge_attr = torch.cat([edge_attr, edge_attr], dim=0)
+    edge_index, target_index, edge_attr = coalesce(edge_index, tgt, num_nodes, num_nodes, edge_attr=edge_attr)
+    return edge_index, target_index, edge_attr
 
 
 def to_undirected(data):
-    data.edge_index, data.y = to_undirected_edge_index(edge_index=data.edge_index)
+    data.edge_index, data.y, data.edge_attr = to_undirected_edge_index(edge_index=data.edge_index, target_index=data.y)
 
     # data.train_edge_index, data.train_target_index, data.train_edge_attr = to_undirected_edge_index(
     #     edge_index=data.train_edge_index, target_index=data.train_target_index, edge_attr=data.train_edge_attr)
