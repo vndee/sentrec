@@ -96,7 +96,7 @@ if __name__ == '__main__':
                     torch.save(net.state_dict(), os.path.join(args.save_dir, f'best_{best_perf}.pt'))
                     net.eval()
                     z = net.encode(graph)
-                    u, v = z[graph.train_edge_index[0]].cpu(), z[graph.train_edge_index[1]].cpu()
+                    u, v = z[graph.edge_index[0]].cpu(), z[graph.edge_index[1]].cpu()
                     torch.save(u, os.path.join(args.save_dir, "u.pt"))
                     torch.save(v, os.path.join(args.save_dir, "v.pt"))
                     print("Saved best model..")
