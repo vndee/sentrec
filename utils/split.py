@@ -52,10 +52,4 @@ def split_graph(data, pivot=135000):
     data.train_edge_index = torch.stack([r, c], dim=0)
     data.train_target_index = y
 
-    if data.edge_attr is not None:
-        data.train_edge_attr = torch.tensor(data.edge_attr[n_v:])
-        data.val_edge_attr = torch.tensor(data.edge_attr[: n_v])
-    else:
-        data.train_edge_attr, data.val_edge_attr = None, None
-
     return data

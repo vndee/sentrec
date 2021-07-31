@@ -7,17 +7,17 @@ from sklearn.metrics import f1_score, accuracy_score
 
 
 class GCNJointRepresentation(torch.nn.Module):
-    def __init__(self, num_classes=5, conv_type='RGCN'):
+    def __init__(self, num_features, num_classes=5, conv_type='RGCN'):
         super(GCNJointRepresentation, self).__init__()
 
         if conv_type == 'rgcn':
-            self.conv1 = RGCNConv(in_channels=1, out_channels=128, num_relations=1)
+            self.conv1 = RGCNConv(in_channels=num_features, out_channels=128, num_relations=1)
             self.conv2 = RGCNConv(in_channels=128, out_channels=64, num_relations=1)
         elif conv_type == 'gcn':
-            self.conv1 = GCNConv(in_channels=1, out_channels=128)
+            self.conv1 = GCNConv(in_channels=num_features, out_channels=128)
             self.conv2 = GCNConv(in_channels=128, out_channels=64)
         elif conv_type == 'sage':
-            self.conv1 = SAGEConv(in_channels=1, out_channels=128)
+            self.conv1 = SAGEConv(in_channels=num_features, out_channels=128)
             self.conv2 = SAGEConv(in_channels=128, out_channels=64)
 
         self.conv_type = conv_type
@@ -65,5 +65,26 @@ class GCNJointRepresentation(torch.nn.Module):
         if device == "cuda":
             links = links.detach().cpu().numpy()
             link_labels = link_labels.detach().cpu().numpy()
+        else:
+            links = links.detach().numpy()
+            link_labels = link_labels.detach().numpy()
 
         return loss.item(), accuracy_score(link_labels, links), f1_score(link_labels, links, average="macro")
+
+    def test(self, data, device, criterion):
+        self.eval()
+        with torch.no_grad():
+            z = self.encode(data)
+            link_logits = self.decode(z, data.test_edge_index)
+            link_labels = data.test_y
+            loss = criterion(link_logits, link_labels)
+            links = torch.argmax(link_logits, dim=-1)
+
+            if device == "cuda":
+                links = links.detach().cpu().numpy()
+                link_labels = link_labels.detach().cpu().numpy()
+            else:
+                links = links.detach().numpy()
+                link_labels = link_labels.detach().numpy()
+
+            return loss.item(), accuracy_score(link_labels, links), f1_score(link_labels, links, average="macro")

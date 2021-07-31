@@ -19,8 +19,8 @@ def chunks(lst, n):
 class AmazonFineFoodsReviews(object):
     def __init__(self, database_path: str):
         super(AmazonFineFoodsReviews, self).__init__()
-        self.df = pd.read_csv(f"{database_path}.csv")
-        self.tf = pd.read_csv("data/mini/train.csv")
+        self.df = pd.read_csv(f"data/mini1k/test.csv")
+        self.tf = pd.read_csv("data/mini1k/train.csv")
         print(f'Data:\n{self.df.describe()}')
         print(self.df.columns)
 
@@ -45,8 +45,9 @@ class AmazonFineFoodsReviews(object):
         :param text_feature:
         :return:
         """
-        user_ids, self.udc = AmazonFineFoodsReviews.compress(self.df.UserId.tolist())
-        product_ids, self.pdc = AmazonFineFoodsReviews.compress(self.df.ProductId.tolist())
+        pivot = len(self.tf)
+        user_ids, self.udc = AmazonFineFoodsReviews.compress(self.tf.UserId.tolist() + self.df.UserId.tolist())
+        product_ids, self.pdc = AmazonFineFoodsReviews.compress(self.tf.ProductId.tolist() + self.df.ProductId.tolist())
         max_user_ids = max(user_ids)
         user_ids = np.array(user_ids)
         product_ids = np.array(product_ids) + max_user_ids + 1
@@ -54,18 +55,22 @@ class AmazonFineFoodsReviews(object):
                                 product_ids.reshape(1, product_ids.shape[0])
 
         edge_index = torch.tensor(np.concatenate((user_ids, product_ids), 0), dtype=torch.long)
-
-        scores = self.df.Score.astype(int).tolist()
-
+        train_edge_index = edge_index[:, :pivot]
+        # scores = self.df.Score.astype(int).tolist()
         train_y = torch.tensor(self.tf.Score.astype(int).tolist(), dtype=torch.long) - 1
-        tuid, tpid = self.tf.UserId.tolist(), self.tf.ProductId.tolist()
-        tuid, tpid = np.array([self.udc[x] for x in tuid]), np.array([self.pdc[x] for x in tpid])
-        tpid = tpid + max_user_ids + 1
-        tuid, tpid = tuid.reshape(1, tuid.shape[0]), tpid.reshape(1, tpid.shape[0])
-        train_edge_index = torch.tensor(np.concatenate((tuid, tpid), 0), dtype=torch.long)
+        test_edge_index = edge_index[:, pivot:]
+        test_y = torch.tensor(self.df.Score.astype(int).tolist(), dtype=torch.long) - 1
+        # tuid, tpid = self.tf.UserId.tolist(), self.tf.ProductId.tolist()
+        # tuid, tpid = np.array([self.udc[x] for x in tuid]), np.array([self.pdc[x] for x in tpid])
+        # tuid, tpid = tuid.reshape(1, tuid.shape[0]), tpid.reshape(1, tpid.shape[0])
+        # train_edge_index = torch.tensor(np.concatenate((tuid, tpid), 0), dtype=torch.long)
 
-        return Data(x=torch.ones(1 + np.max(product_ids), 1), edge_index=edge_index,
-                    y=torch.tensor(scores, dtype=torch.long) - 1, train_y=train_y, train_edge_index=train_edge_index)
+        # print(np.max(product_ids))
+        # one_hot = torch.nn.functional.one_hot(torch.from_numpy(product_ids), num_classes=np.max(product_ids) + 1).squeeze(0)
+        one_hot = torch.eye(np.max(product_ids) + 1)
+        # print(one_hot.shape)
+        return Data(x=one_hot, edge_index=edge_index, train_y=train_y, train_edge_index=train_edge_index, test_y=test_y,
+                    test_edge_index=test_edge_index)
 
 
 class TokenizedDataset(Dataset):

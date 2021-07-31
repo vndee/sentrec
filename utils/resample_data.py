@@ -17,6 +17,7 @@ if __name__ == '__main__':
         min_c = min(min_c, loc.shape[0])
 
     test_size = 0.1
+    min_c = 1000
     new_train_indexes, new_test_indexes = None, None
     for it, cls in enumerate(classes_count):
         indexes = cls[: min_c]
@@ -32,9 +33,9 @@ if __name__ == '__main__':
     train_reviews, test_reviews = reviews.iloc[new_train_indexes], reviews.iloc[new_test_indexes]
     edge_attr_train, edge_attr_test = edge_attr[new_train_indexes], edge_attr[new_test_indexes]
 
-    train_reviews.to_csv("data/mini/train.csv")
-    test_reviews.to_csv("data/mini/test.csv")
-    with open("data/mini/train.vec", "wb") as stream:
+    train_reviews.to_csv("data/mini1k/train.csv")
+    test_reviews.to_csv("data/mini1k/test.csv")
+    with open("data/mini1k/train.vec", "wb") as stream:
         pickle.dump(edge_attr_train, stream)
-    with open("data/mini/test.vec", "wb") as stream:
+    with open("data/mini1k/test.vec", "wb") as stream:
         pickle.dump(edge_attr_test, stream)

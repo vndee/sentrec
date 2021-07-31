@@ -38,12 +38,12 @@ def batch_evaluate(net, loader, device):
 
 if __name__ == '__main__':
     argument = argparse.ArgumentParser(description='Training job for Sentiment Graph for Recommendation')
-    argument.add_argument('-i', '--input', type=str, default='data/Reviews', help='Path to training data')
-    argument.add_argument('-y', '--test', type=str, default='data/mini/test', help='Path to testing file')
+    argument.add_argument('-i', '--input', type=str, default='data/mini1k/train', help='Path to training data')
+    argument.add_argument('-y', '--test', type=str, default='data/mini1k/test', help='Path to testing file')
     argument.add_argument('-l', '--language_model_shortcut', type=str, default='bert-base-cased',
                           help='Pre-trained language models shortcut')
     argument.add_argument('-r', '--learning_rate', type=float, default=1e-5, help='Model learning rate')
-    argument.add_argument('-d', '--device', type=str, default='cuda', help='Training device')
+    argument.add_argument('-d', '--device', type=str, default='cpu', help='Training device')
     argument.add_argument('-e', '--epoch', type=int, default=50000, help='The number of epoch')
     argument.add_argument('-t', '--text_feature', type=bool, default=False, help='Using text feature or not')
     argument.add_argument('-s', '--multi_task', type=bool, default=False, help='Using multi-task training')
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     argument.add_argument('-b', '--batch_size', type=int, default=32, help='Batch size')
     argument.add_argument('-a', '--random_seed', type=int, default=42, help='Seed number')
     argument.add_argument('-g', '--save_dir', type=str, default='data/weights/', help='Path to save dir')
-    argument.add_argument('-p', '--pretrained', type=str, default='data/weights/best.pt',
+    argument.add_argument('-p', '--pretrained', type=str, default=None,
                           help='Path to pretrained model')
     args = argument.parse_args()
     set_reproducibility_state(args.random_seed)
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     writer = SummaryWriter(os.path.join(args.save_dir, 'logs'))
 
     if args.model in ['gcn', 'rgcn', 'sage']:
-        net = GCNJointRepresentation(conv_type=args.model)
+        net = GCNJointRepresentation(num_features=graph.x.shape[1], conv_type=args.model)
         if args.pretrained is not None:
             net.load_state_dict(torch.load(args.pretrained), strict=False)
             print(f"Loaded pretrained weights from {args.pretrained}")
@@ -84,14 +84,16 @@ if __name__ == '__main__':
             graph = graph.to(args.device)
             train_loss, train_acc, train_f1 = net.learn(data=graph, optimizer=optim,
                                                         criterion=criterion, device=args.device)
+            test_loss, test_acc, test_f1 = net.test(data=graph, criterion=criterion, device=args.device)
 
-            print(f'Epoch: {epoch + 1:04d}/{args.epoch:04d}, train_loss: {train_loss:.5f}, '
-                  f'train_acc: {train_acc:.2f}, train_f1: {train_f1:.2f}')
+            print(f'Epoch: {epoch + 1:04d}/{args.epoch:04d}| '
+                  f'train_loss: {train_loss:.5f}, train_acc: {train_acc:.2f}, train_f1: {train_f1:.2f} | '
+                  f'test_loss: {test_loss:.5f}, test_acc: {test_acc:.2f}, test_f1: {test_f1:.2f}')
 
-            if train_acc > best_perf:
+            if test_acc > best_perf:
                 with torch.no_grad():
                     best_perf = train_acc
-                    torch.save(net.state_dict(), os.path.join(args.save_dir, 'best.pt'))
+                    torch.save(net.state_dict(), os.path.join(args.save_dir, f'best_{best_perf}.pt'))
                     net.eval()
                     z = net.encode(graph)
                     u, v = z[graph.train_edge_index[0]].cpu(), z[graph.train_edge_index[1]].cpu()
@@ -102,6 +104,9 @@ if __name__ == '__main__':
             writer.add_scalar('train_acc', train_acc, epoch)
             writer.add_scalar('train_loss', train_loss, epoch)
             writer.add_scalar('train_f1', train_f1, epoch)
+            writer.add_scalar('test_acc', test_acc, epoch)
+            writer.add_scalar('test_loss', test_loss, epoch)
+            writer.add_scalar('test_f1', test_f1, epoch)
 
             els = time.time() - t0
             est = (els / (1 + epoch)) * (args.epoch - epoch - 1)
