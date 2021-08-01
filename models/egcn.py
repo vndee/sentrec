@@ -11,19 +11,19 @@ class GCNJointRepresentation(torch.nn.Module):
         super(GCNJointRepresentation, self).__init__()
 
         if conv_type == 'rgcn':
-            self.conv1 = RGCNConv(in_channels=num_features, out_channels=128, num_relations=1)
-            self.conv2 = RGCNConv(in_channels=128, out_channels=64, num_relations=1)
+            self.conv1 = RGCNConv(in_channels=num_features, out_channels=1536, num_relations=1)
+            self.conv2 = RGCNConv(in_channels=1536, out_channels=768, num_relations=1)
         elif conv_type == 'gcn':
-            self.conv1 = GCNConv(in_channels=num_features, out_channels=128)
-            self.conv2 = GCNConv(in_channels=128, out_channels=64)
+            self.conv1 = GCNConv(in_channels=num_features, out_channels=1536)
+            self.conv2 = GCNConv(in_channels=1536, out_channels=768)
         elif conv_type == 'sage':
-            self.conv1 = SAGEConv(in_channels=num_features, out_channels=128)
-            self.conv2 = SAGEConv(in_channels=128, out_channels=64)
+            self.conv1 = SAGEConv(in_channels=num_features, out_channels=1536)
+            self.conv2 = SAGEConv(in_channels=1546, out_channels=768)
 
         self.conv_type = conv_type
 
         self.relu = torch.nn.ReLU()
-        self.linear = torch.nn.Linear(64, num_classes)
+        self.linear = torch.nn.Linear(768, num_classes)
         self.softmax = torch.nn.Softmax(dim=-1)
 
     def encode(self, data):

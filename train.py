@@ -43,7 +43,7 @@ if __name__ == '__main__':
     argument.add_argument('-l', '--language_model_shortcut', type=str, default='bert-base-cased',
                           help='Pre-trained language models shortcut')
     argument.add_argument('-r', '--learning_rate', type=float, default=1e-5, help='Model learning rate')
-    argument.add_argument('-d', '--device', type=str, default='cpu', help='Training device')
+    argument.add_argument('-d', '--device', type=str, default='cuda', help='Training device')
     argument.add_argument('-e', '--epoch', type=int, default=50000, help='The number of epoch')
     argument.add_argument('-t', '--text_feature', type=bool, default=False, help='Using text feature or not')
     argument.add_argument('-s', '--multi_task', type=bool, default=False, help='Using multi-task training')
@@ -94,6 +94,7 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     best_perf = train_acc
                     torch.save(net.state_dict(), os.path.join(args.save_dir, f'best_{best_perf}.pt'))
+
                     net.eval()
                     z = net.encode(graph)
                     u_train, v_train = z[graph.train_edge_index[0]].cpu(), z[graph.train_edge_index[1]].cpu()
