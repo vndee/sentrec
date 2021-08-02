@@ -34,16 +34,21 @@ class JointClassifier(torch.nn.Module):
 class CNNClassifier(torch.nn.Module):
     def __init__(self, num_classes=5):
         super(CNNClassifier, self).__init__()
-        self.conv = torch.nn.Conv1d(in_channels=3, out_channels=1, kernel_size=5)
+        self.conv_1 = torch.nn.Conv1d(in_channels=9, out_channels=3, kernel_size=5)
+        self.conv_2 = torch.nn.Conv1d(in_channels=3, out_channels=1, kernel_size=3)
         self.relu = torch.nn.ReLU()
         self.pool = torch.nn.MaxPool1d(3, stride=2)
-        self.linear_1 = torch.nn.Linear(in_features=381, out_features=128)
+        self.linear_1 = torch.nn.Linear(in_features=380, out_features=128)
         self.linear_2 = torch.nn.Linear(in_features=128, out_features=num_classes)
 
     def forward(self, u, v, t):
         u, v, t = u.unsqueeze(1), v.unsqueeze(1), t.unsqueeze(1)
-        x = torch.cat([u, v, t], dim=1)
-        x = self.conv(x)
+        uv, ur, vr = u + v, u + t, v + t
+        u_v, u_r, v_r = u * v, u * t, v * t
+        x = torch.cat([u, v, t, uv, ur, vr, u_v, u_r, v_r], dim=1)
+        x = self.conv_1(x)
+        x = self.relu(x)
+        x = self.conv_2(x)
         x = self.relu(x)
         x = self.pool(x)
         x = x.squeeze()
@@ -90,7 +95,7 @@ if __name__ == "__main__":
     argument_parser.add_argument("-r_te", "--r_test", type=str, default="data/mini1k/test.csv")
     argument_parser.add_argument("-z_tr", "--vec_train", type=str, default="data/mini1k/train_vec.pt")
     argument_parser.add_argument("-z_te", "--vec_test", type=str, default="data/mini1k/test_vec.pt")
-    argument_parser.add_argument("-d", "--device", type=str, default="cuda")
+    argument_parser.add_argument("-d", "--device", type=str, default="cpu")
     argument_parser.add_argument("-e", "--epoch", type=int, default=50000)
     argument_parser.add_argument("-l", "--learning_rate", type=float, default=3e-5)
     argument_parser.add_argument("-s", "--save_dir", type=str, default="data/checkpoint")
