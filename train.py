@@ -93,7 +93,7 @@ if __name__ == '__main__':
             if test_acc > best_perf:
                 with torch.no_grad():
                     best_perf = train_acc
-                    torch.save(net.state_dict(), os.path.join(args.save_dir, f'best_{best_perf}.pt'))
+                    torch.save(net.state_dict(), os.path.join(args.save_dir, f'best_{best_perf}_{epoch}.pt'))
 
                     net.eval()
                     z = net.encode(graph)
