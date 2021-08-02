@@ -83,15 +83,17 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(VectorDataset(u=u_train, v=v_train, t=text_train, y=y_train), shuffle=True, batch_size=4)
     test_loader = torch.utils.data.DataLoader(VectorDataset(u=u_test, v=v_test, t=text_test, y=y_test), shuffle=True, batch_size=4)
 
-    v = torch.zeros((text_train.__len__(), 768))
-    bert = AutoModel.from_pretrained("bert-base-cased").to(args.device)
-    for i, (x, y, z, t) in enumerate(tqdm(train_loader, desc="Processing train")):
-        x, y = x.to(args.device), y.to(args.device)
-        p = bert(input_ids=x, attention_mask=y).pooler_output
-        v[i * 4: i * 4 + 4] = p
+    with torch.no_grad():
+        v = torch.zeros((text_train.__len__(), 768))
+        bert = AutoModel.from_pretrained("bert-base-cased").to(args.device)
+        for i, (x, y, z, t) in enumerate(tqdm(train_loader, desc="Processing train")):
+            x, y = x.to(args.device), y.to(args.device)
+            p = bert(input_ids=x, attention_mask=y).pooler_output
+            p = p.detach().cpu()
+            v[i * 4: i * 4 + 4] = p
 
-    print(v.shape)
-    torch.save("data/train_vec.pt", v)
+        print(v.shape)
+        torch.save("data/train_vec.pt", v)
     #---
 
     net = JointClassifier(input_dim=896, num_classes=5)
