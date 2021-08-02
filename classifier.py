@@ -63,7 +63,7 @@ if __name__ == "__main__":
     argument_parser.add_argument("-v_te", "--v_test", type=str, default="data/mini1k/v_test.pt")
     argument_parser.add_argument("-r_tr", "--r_train", type=str, default="data/mini1k/train.csv")
     argument_parser.add_argument("-r_te", "--r_test", type=str, default="data/mini1k/test.csv")
-    argument_parser.add_argument("-d", "--device", type=str, default="cpu")
+    argument_parser.add_argument("-d", "--device", type=str, default="cuda")
     argument_parser.add_argument("-e", "--epoch", type=int, default=100)
     argument_parser.add_argument("-l", "--learning_rate", type=float, default=1e-5)
     argument_parser.add_argument("-s", "--save_dir", type=str, default="data/checkpoint")
@@ -84,12 +84,14 @@ if __name__ == "__main__":
     test_loader = torch.utils.data.DataLoader(VectorDataset(u=u_test, v=v_test, t=text_test, y=y_test), shuffle=True, batch_size=4)
 
     v = torch.zeros((text_train.__len__(), 768))
-    bert = AutoModel.from_pretrained("bert-base-cased")
+    bert = AutoModel.from_pretrained("bert-base-cased").to(args.device)
     for i, (x, y, z, t) in enumerate(tqdm(train_loader, desc="Processing train")):
+        x, y = x.to(args.device), y.to(args.device)
         p = bert(input_ids=x, attention_mask=y).pooler_output
         v[i * 4: i * 4 + 4] = p
 
     print(v.shape)
+    torch.save("data/train_vec.pt", v)
     #---
 
     net = JointClassifier(input_dim=896, num_classes=5)
