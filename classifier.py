@@ -95,9 +95,9 @@ if __name__ == "__main__":
     argument_parser.add_argument("-r_te", "--r_test", type=str, default="data/mini1k/test.csv")
     argument_parser.add_argument("-z_tr", "--vec_train", type=str, default="data/mini1k/train_vec.pt")
     argument_parser.add_argument("-z_te", "--vec_test", type=str, default="data/mini1k/test_vec.pt")
-    argument_parser.add_argument("-d", "--device", type=str, default="cuda")
+    argument_parser.add_argument("-d", "--device", type=str, default="cpu")
     argument_parser.add_argument("-e", "--epoch", type=int, default=50000)
-    argument_parser.add_argument("-l", "--learning_rate", type=float, default=3e-5)
+    argument_parser.add_argument("-l", "--learning_rate", type=float, default=1e-4)
     argument_parser.add_argument("-s", "--save_dir", type=str, default="data/checkpoint")
     argument_parser.add_argument("-p", "--pretrained", type=str, default=None)
     args = argument_parser.parse_args()
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     # net = JointClassifier(input_dim=896, num_classes=5)
     net = CNNClassifier()
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(lr=args.learning_rate, params=net.parameters())
+    optimizer = torch.optim.Adam(lr=args.learning_rate, params=net.parameters(), weight_decay=1e-5)
 
     if args.pretrained is not None:
         net = net.load_state_dict(torch.load(args.pretrained, map_location=torch.device(args.device)))
@@ -139,10 +139,11 @@ if __name__ == "__main__":
         loss_tr, cnt, acc_tr, f1_tr = 0., 0, 0., 0.
         for x, y, u, v, r, t in tqdm(train_loader, desc=f"Training {epoch + 1}/{args.epoch}"):
             x, y, u, v, r, t = x.to(args.device), y.to(args.device), u.to(args.device), v.to(args.device), r.to(args.device), t.to(args.device)
+            optimizer.zero_grad()
             p = net(u, v, r)
             loss = criterion(p, t)
             loss.backward()
-            optimizer.zero_grad()
+            optimizer.step()
 
             loss_tr = loss_tr + loss.item()
             cnt = cnt + 1
