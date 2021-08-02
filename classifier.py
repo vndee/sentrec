@@ -93,7 +93,18 @@ if __name__ == "__main__":
             v[i * 4: i * 4 + 4] = p
 
         print(v.shape)
-        torch.save("data/train_vec.pt", v)
+        torch.save(v, "data/train_vec.pt")
+
+        v = torch.zeros((text_test.__len__(), 768))
+        bert = AutoModel.from_pretrained("bert-base-cased").to(args.device)
+        for i, (x, y, z, t) in enumerate(tqdm(test_loader, desc="Processing train")):
+            x, y = x.to(args.device), y.to(args.device)
+            p = bert(input_ids=x, attention_mask=y).pooler_output
+            p = p.detach().cpu()
+            v[i * 4: i * 4 + 4] = p
+
+        print(v.shape)
+        torch.save(v, "data/test_vec.pt")
     #---
 
     net = JointClassifier(input_dim=896, num_classes=5)
