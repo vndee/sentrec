@@ -124,9 +124,9 @@ if __name__ == "__main__":
     os.makedirs(args.save_dir, exist_ok=True)
 
     train_loader = torch.utils.data.DataLoader(
-        VectorDataset(u=u_train, v=v_train, t=text_train, y=y_train, z=vec_train), shuffle=True, batch_size=4)
+        VectorDataset(u=u_train, v=v_train, t=text_train, y=y_train, z=vec_train), shuffle=True, batch_size=16)
     test_loader = torch.utils.data.DataLoader(VectorDataset(u=u_test, v=v_test, t=text_test, y=y_test, z=vec_test),
-                                              shuffle=True, batch_size=4)
+                                              shuffle=True, batch_size=16)
     
     os.makedirs(os.path.join(args.save_dir, 'logs'), exist_ok=True)
     writer = SummaryWriter(os.path.join(args.save_dir, 'logs'))
