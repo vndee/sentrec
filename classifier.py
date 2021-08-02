@@ -79,6 +79,19 @@ if __name__ == "__main__":
     y_test = torch.from_numpy(np.array(df.Score.astype(int).tolist()) - 1)
     text_test = df.Text.tolist()
 
+    #---
+    train_loader = torch.utils.data.DataLoader(VectorDataset(u=u_train, v=v_train, t=text_train, y=y_train), shuffle=True, batch_size=4)
+    test_loader = torch.utils.data.DataLoader(VectorDataset(u=u_test, v=v_test, t=text_test, y=y_test), shuffle=True, batch_size=4)
+
+    v = torch.zeros((text_train.__len__(), 768))
+    bert = AutoModel.from_pretrained("bert-base-cased")
+    for i, (x, y, z, t) in enumerate(tqdm(train_loader, desc="Processing train")):
+        p = bert(input_ids=x, attention_mask=y).pooler_output
+        v[i * 4: i * 4 + 4] = p
+
+    print(v.shape)
+    #---
+
     net = JointClassifier(input_dim=896, num_classes=5)
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(lr=args.learning_rate, params=net.parameters())
